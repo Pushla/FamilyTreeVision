@@ -38,7 +38,7 @@ const CIT=[
 
 // ── State ──
 function mkTree(){return{me:{id:"me",role:"Я",gen:0,gender:null,core:1},father:{id:"father",role:"Отец",gen:1,gender:"m",core:1,parentOf:"me"},mother:{id:"mother",role:"Мать",gen:1,gender:"f",core:1,parentOf:"me"},gm_pat:{id:"gm_pat",role:"Бабушка (по отцу)",gen:2,gender:"f",core:1,parentOf:"father"},gf_pat:{id:"gf_pat",role:"Дедушка (по отцу)",gen:2,gender:"m",core:1,parentOf:"father"},gm_mat:{id:"gm_mat",role:"Бабушка (по матери)",gen:2,gender:"f",core:1,parentOf:"mother"},gf_mat:{id:"gf_mat",role:"Дедушка (по матери)",gen:2,gender:"m",core:1,parentOf:"mother"},ggm1:{id:"ggm1",role:"Прабабушка",gen:3,gender:"f",core:1,parentOf:"gm_pat"},ggf1:{id:"ggf1",role:"Прадедушка",gen:3,gender:"m",core:1,parentOf:"gm_pat"},ggm2:{id:"ggm2",role:"Прабабушка",gen:3,gender:"f",core:1,parentOf:"gf_pat"},ggf2:{id:"ggf2",role:"Прадедушка",gen:3,gender:"m",core:1,parentOf:"gf_pat"},ggm3:{id:"ggm3",role:"Прабабушка",gen:3,gender:"f",core:1,parentOf:"gm_mat"},ggf3:{id:"ggf3",role:"Прадедушка",gen:3,gender:"m",core:1,parentOf:"gm_mat"},ggm4:{id:"ggm4",role:"Прабабушка",gen:3,gender:"f",core:1,parentOf:"gf_mat"},ggf4:{id:"ggf4",role:"Прадедушка",gen:3,gender:"m",core:1,parentOf:"gf_mat"}}}
-let S={tree:mkTree(),data:{},general:{},files:{},view:"lobby",sel:null,os:{},rid:null,sync:false,am:null,search:"",preview:null,viewer:null,modal:null};
+let S={tree:mkTree(),data:{},general:{},files:{},view:"lobby",sel:null,os:{},rid:null,sync:false,am:null,search:"",preview:null,viewer:null,modal:null,showQR:false};
 const LS="ftree-v9",LSF="ftree-f-v2";
 
 // ── Helpers ──
@@ -128,13 +128,13 @@ function render(){
 
   if(S.view==="lobby"){$("app").innerHTML=rLobby();return}
   const sy=S.sync?`<span class="sync on">${i("cloud","ic-s")} синхр.</span>`:`<span class="sync off">${i("disk","ic-s")} лок.</span>`;
-  let qr="";try{const q=qrcode(0,"M");q.addData(location.origin+location.pathname+"?room="+S.rid);q.make();qr=q.createDataURL(3)}catch{}
 
   let h=`<div class="hdr"><div class="hdr-logo"><div class="hdr-mark">${i("tree","ic-m")}</div><div><div class="hdr-t">Семейное Древо</div><div class="hdr-s">${sy}</div></div></div>
   <div class="nav">${navBtn("tree","tree","Древо")}${navBtn("cit","passport","Гражд.",citR.length)}${navBtn("alerts","bolt","",al.length)}${navBtn("general","scroll","")}<span class="sp"></span>
   <button class="ib" data-act="export">${i("save","ic-s")}</button><button class="ib" data-act="import">${i("folder","ic-s")}</button><button class="ib" data-act="reset">${i("trash","ic-s")}</button></div></div>
   <div class="pbar"><div class="ptk"><div class="pfl" style="width:${pr}%"></div></div><span class="plb">${pr}%</span></div>`;
-  if(S.rid)h+=`<div class="share"><span style="font-size:11px;color:var(--dm)">Код:</span><span class="share-code">${S.rid}</span><button class="btn" data-act="copy-link">${i("copy","ic-s")} Ссылка</button><button class="btn btn-s" data-act="show-invite">${i("users","ic-s")} Пригласить</button>${qr?`<div class="share-qr"><img src="${qr}"></div>`:""}</div>`;
+  if(S.rid){let qrH="";if(S.showQR){try{const q=qrcode(0,"M");q.addData(location.origin+location.pathname+"?room="+S.rid);q.make();qrH=`<div class="share-qr"><img src="${q.createDataURL(4)}"></div>`}catch{}}
+    h+=`<div class="share"><span class="share-code">${S.rid}</span><button class="btn" data-act="copy-link">${i("copy","ic-s")} Ссылка</button><button class="btn btn-s" data-act="show-invite">${i("users","ic-s")} Пригласить</button><button class="btn btn-s" data-act="toggle-qr">QR</button>${qrH}</div>`}
   h+=`<div class="stats"><span class="chip">${i("person","ic-s")} <b>${ids.length}</b></span><span class="chip">${i("passport","ic-s")} <b>${citR.length}</b></span><span class="chip">${i("bolt","ic-s")} <b>${al.length}</b></span><span class="chip">${i("image","ic-s")} <b>${tf}</b></span></div>`;
 
   if(S.view==="tree"&&!S.sel){h+=`<div class="search-bar">${i("search","ic-s")}<input placeholder="Поиск..." value="${esc(S.search)}" data-search></div>`;h+=rTree(alMap)}
@@ -319,6 +319,7 @@ document.addEventListener("click",e=>{
 
   // Share
   if(a==="copy-link"){const l=location.origin+location.pathname+"?room="+S.rid;navigator.clipboard?.writeText(l).then(()=>toast("Скопировано!"));return}
+  if(a==="toggle-qr"){S.showQR=!S.showQR;render();return}
   if(a==="copy-invite"){navigator.clipboard?.writeText(act.dataset.link).then(()=>toast("Ссылка скопирована!"));return}
   if(a==="show-invite"){showInviteModal();return}
   if(a==="close-modal"){S.modal=null;render();return}
