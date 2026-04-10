@@ -62,8 +62,17 @@ function loadCache(){try{const d=localStorage.getItem(LS);if(d){const p=JSON.par
 async function saveNow(){
   if(!db||!S.rid)return;
   S._saving=Date.now();
-  try{await db.collection("rooms").doc(S.rid).set({tree:S.tree,data:S.data,general:S.general,t:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});S.sync=true;console.log("[DB] Saved to Firebase")}catch(e){console.error("[DB] Save failed:",e)}
-  cacheL() // also cache locally
+  try{
+    // set() WITHOUT merge — полностью заменяет документ, удалённые ключи исчезают
+    await db.collection("rooms").doc(S.rid).set({
+      tree:S.tree,
+      data:S.data,
+      general:S.general,
+      t:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    S.sync=true;console.log("[DB] Saved to Firebase (full replace)")
+  }catch(e){console.error("[DB] Save failed:",e)}
+  cacheL()
 }
 // Save debounced (for field edits while typing)
 let svT=null;
