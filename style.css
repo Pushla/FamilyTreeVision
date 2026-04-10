@@ -24,7 +24,6 @@ button{cursor:pointer;font-family:var(--fb)}input,textarea{font-family:var(--fb)
 .pfl{height:100%;background:linear-gradient(90deg,var(--gold2),var(--gold3));border-radius:2px;transition:width .6s}.plb{font-size:11px;color:var(--dm);white-space:nowrap}
 .share{background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:8px 14px;margin:4px 16px 6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .share-code{font-family:monospace;font-size:15px;font-weight:700;color:var(--gold);letter-spacing:2px}
-.share-qr{width:72px;height:72px;border-radius:6px;overflow:hidden;border:1px solid var(--bd);background:#fff;padding:3px;margin-left:auto}.share-qr img{width:100%;height:100%}
 .btn{background:var(--gold);color:var(--bg);border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;transition:opacity .2s}.btn:hover{opacity:.85}
 .btn-s{background:var(--sf2);color:var(--tx);border:1px solid var(--bd)}.btn-s:hover{border-color:var(--gold)}
 .sync{font-size:9px;padding:2px 7px;border-radius:10px;display:inline-flex;align-items:center;gap:3px}.sync.on{background:var(--gbg2);color:var(--gr)}.sync.off{background:rgba(255,255,255,.05);color:var(--dm)}
@@ -180,8 +179,60 @@ textarea.fi{resize:vertical;min-height:80px}
 /* Floating viewer card */
 .vcard{position:fixed;bottom:16px;right:16px;background:var(--sf);border:1px solid var(--gr);border-radius:12px;padding:10px 14px;z-index:90;box-shadow:0 8px 24px rgba(0,0,0,.4);display:flex;align-items:center;gap:10px;max-width:280px}
 
+/* QR hidden by default, shown via toggle */
+.share-qr{width:120px;height:120px;border-radius:8px;overflow:hidden;border:1px solid var(--bd);background:#fff;padding:6px;margin-top:8px;flex-basis:100%}
+.share-qr img{width:100%;height:100%}
+
 /* Toast */
 .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--bg);padding:10px 24px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;animation:fadeIn .3s;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 @keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 @keyframes panelIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@media(max-width:600px){.hdr{padding:8px 10px}.nb{padding:4px 7px;font-size:10px}.nd{width:84px}.nd.sib{width:74px}.lcard{padding:28px 18px}.stats{margin:0 10px 6px}.arch-link{min-width:auto;flex:auto}.vcard{left:16px;right:16px;max-width:none}}
+
+/* ═══ Mobile ═══ */
+@media(max-width:768px){
+  .hdr{padding:8px 12px;gap:6px}
+  .hdr-mark{width:30px;height:30px;border-radius:8px}
+  .hdr-t{font-size:16px}
+  .nav{gap:2px}
+  .nb{padding:4px 7px;font-size:10px;gap:3px}
+  .nb .ic{display:none} /* hide icons in nav on mobile, text only */
+  .ib{padding:4px 5px}
+  .sp{margin:0 1px;height:16px}
+  .pbar{padding:3px 12px 2px}
+  .share{margin:4px 12px 4px;padding:6px 10px;gap:6px;flex-wrap:wrap}
+  .share-code{font-size:13px;letter-spacing:1px}
+  .btn{padding:4px 8px;font-size:10px}
+  .stats{margin:0 12px 4px;gap:4px}
+  .chip{padding:3px 6px;font-size:10px}.chip b{font-size:11px}
+  .search-bar{margin:0 12px 6px;padding:5px 10px}
+  .tree-area{padding:6px 4px 12px}
+  .tree-box{min-width:auto!important} /* allow natural sizing */
+  .nd{width:76px;padding:6px 4px 5px;border-radius:10px}
+  .nd.sib{width:68px}
+  .nd-ring{width:32px;height:32px}.nd-ring>svg{width:32px;height:32px}
+  .nd-role{font-size:8px;min-height:14px}
+  .nd-nm{font-size:9px}
+  .nd-tag{font-size:7px}
+  .del-btn{width:18px;height:18px;top:-5px;right:-5px}
+  .add-b{width:24px;height:24px}
+  .add-menu{min-width:170px}
+  .gen-banner{font-size:11px;padding:2px 0 5px}
+  .gen-conn{height:12px}
+  .fam{padding:0 3px 10px;gap:3px}
+  .fam::after{height:10px}
+  .panel{padding:0 10px 30px}
+  .panel-hdr{padding:10px 0 8px}
+  .bk-btn{padding:6px 8px;font-size:12px}
+  .p-nm{font-size:15px}
+  .p-pct{font-size:18px}
+  .stog{padding:8px 10px;font-size:12px}
+  .sbody{padding:8px 10px 12px}
+  .fi{padding:7px 9px;font-size:12px}
+  .lcard{padding:24px 16px;border-radius:16px}
+  .l-t{font-size:22px}
+  .l-btn{padding:11px;font-size:13px}
+  .modal-c{padding:20px 16px;border-radius:14px}
+  .modal-t{font-size:18px}
+  .vcard{left:10px;right:10px;max-width:none;bottom:10px;padding:8px 10px}
+  .share-qr{width:100px;height:100px}
+}
