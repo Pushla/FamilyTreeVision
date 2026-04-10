@@ -58,7 +58,13 @@ function pName(pid){const d=S.data[pid]||{};return(d.firstName||d.surname)?`${d.
 function saveL(){try{localStorage.setItem(LS,JSON.stringify({tree:S.tree,data:S.data,general:S.general,rid:S.rid}));localStorage.setItem(LSF,JSON.stringify(S.files))}catch{}}
 function loadL(){try{const d=localStorage.getItem(LS);if(d){const p=JSON.parse(d);if(p.tree)S.tree=p.tree;S.data=p.data||{};S.general=p.general||{};if(p.rid)S.rid=p.rid}const f=localStorage.getItem(LSF);if(f)S.files=JSON.parse(f)}catch{}}
 async function saveC(){if(!db||!S.rid)return;try{S._saving=Date.now();await db.collection("rooms").doc(S.rid).set({tree:S.tree,data:S.data,general:S.general,t:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});S.sync=true}catch(e){console.error(e)}}
-function listenC(){if(!db||!S.rid)return;if(unsub)unsub();unsub=db.collection("rooms").doc(S.rid).onSnapshot(snap=>{if(Date.now()-(S._saving||0)<3000){console.log("[FB] Ignoring echo");return}if(snap.exists){const d=snap.data();S.tree=d.tree||mkTree();S.data=d.data||{};S.general=d.general||{};S.sync=true;saveL();render()}},()=>{S.sync=false})}
+function listenC(){if(!db||!S.rid)return;if(unsub)unsub();
+  let skipFirst=!!localStorage.getItem(LS); // if we have local data, skip first snapshot to avoid overwriting deletes
+  unsub=db.collection("rooms").doc(S.rid).onSnapshot(snap=>{
+    if(skipFirst){skipFirst=false;console.log("[FB] Skipped first snapshot, pushing local→cloud");saveC();return}
+    if(Date.now()-(S._saving||0)<3000){console.log("[FB] Ignoring echo");return}
+    if(snap.exists){const d=snap.data();S.tree=d.tree||mkTree();S.data=d.data||{};S.general=d.general||{};S.sync=true;saveL();render();console.log("[FB] Remote update applied")}
+  },()=>{S.sync=false})}
 let svT=null;function save(){saveL();clearTimeout(svT);svT=setTimeout(()=>saveC(),1200)}
 
 // ── Room ──
@@ -178,6 +184,28 @@ function rPerson(id,alMap){
   const d=S.data[id]||{},mk=markers(id),pc=pct(id),files=S.files[id]||[],arLinks=archLinks(id);
   const gc=p.gender==="f"?"var(--fem)":"var(--mal)",pcC=pc>60?"var(--gr)":"var(--gold)";
   let ah="";if(mk.length)ah=`<div class="abox"><div class="abox-t">${i("bolt","ic-m")} Зацепки</div><div class="abox-m">${mk.map(m=>`<span>${esc(m)}</span>`).join("")}</div><div class="abox-d">Возможная связь с бывшей Румынией, Польшей, Германией, Прибалтикой.</div></div>`;
+  // Archive search panel for sparse cards
+  let searchPanel="";
+  const sn=d.surname||d.maidenName||"",fn=d.firstName||"",E=encodeURIComponent;
+  if(pc<30){
+    if(!sn&&!fn){
+      searchPanel=`<div class="abox" style="background:var(--gbg);border-color:rgba(212,169,76,.3)"><div class="abox-t" style="color:var(--gold)">${i("search","ic-m")} Карточка пуста</div><div class="abox-d">Введите хотя бы фамилию и имя — и система покажет ссылки для поиска в архивах: Память народа, ОБД Мемориал, FamilySearch и других.</div></div>`;
+    } else {
+      const links=[
+        {n:"Память народа",d:"ВОВ, награды, боевой путь",u:`https://pamyat-naroda.ru/heroes/?last_name=${E(sn)}&first_name=${E(fn)}`},
+        {n:"ОБД Мемориал",d:"Погибшие и пропавшие ВОВ",u:`https://obd-memorial.ru/html/search.htm?surname=${E(sn)}&name=${E(fn)}`},
+        {n:"FamilySearch",d:"Метрики, переписи, церковные книги",u:`https://www.familysearch.org/search/record/results?q.surname=${E(sn)}&q.givenName=${E(fn)}`},
+        {n:"Открытый список",d:"Жертвы репрессий",u:`https://ru.openlist.wiki/?q=${E(sn+" "+fn)}`},
+        {n:"Подвиг народа",d:"Наградные листы",u:`https://podvignaroda.ru/?#tab=navPeople_search&fio=${E(sn+" "+fn)}`}
+      ];
+      searchPanel=`<div style="background:var(--gbg);border:1px solid rgba(212,169,76,.3);border-radius:10px;padding:14px;margin-bottom:14px">
+        <div style="font-size:14px;font-weight:700;color:var(--gold);margin-bottom:6px;display:flex;align-items:center;gap:6px">${i("search","ic-m")} Найти ${esc(fn)} ${esc(sn)} в архивах</div>
+        <div style="font-size:11px;color:var(--dm);margin-bottom:10px">Карточка заполнена на ${pc}%. Попробуйте найти данные в архивах — нажмите на любую ссылку:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${links.map(l=>`<a href="${l.u}" target="_blank" style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;color:var(--tx);text-decoration:none;font-size:12px;flex:1;min-width:180px;transition:border-color .2s" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--bd)'">${i("link","ic-s")}<div><div style="font-weight:600">${l.n}</div><div style="font-size:10px;color:var(--dm)">${l.d}</div></div></a>`).join("")}</div>
+        <div style="font-size:10px;color:var(--dm);margin-top:8px;line-height:1.5;padding:6px 8px;background:var(--bg2);border-radius:6px;border-left:3px solid var(--gold2)">Совет: если нашли данные — место рождения, год, национальность, воинскую часть — заполните соответствующие поля ниже. Система автоматически проверит на совпадения с программами гражданства.</div>
+      </div>`;
+    }
+  }
   let ss="";FLD.forEach((sec,si)=>{const sk=`${id}_${si}`,io=S.os[sk]!==false;const fl=sec.f.filter(f=>d[f.k]?.trim?.()).length;let fh="";
     if(io){let inner=`<div class="sdesc">${esc(sec.d)}</div>`;
       sec.f.forEach(f=>{const v=d[f.k]||"",lc=f.c?"flbl crit":"flbl",bg=f.c?`<span class="fbdg">ВАЖНО</span>`:"";const hint=f.h?`<div class="fhint">${esc(f.h)}</div>`:"";
@@ -197,7 +225,7 @@ function rPerson(id,alMap){
     fH=`<div class="sbody"><div class="sdesc">Фото документов, паспортов, метрик.</div><div class="fgrid">${th}</div></div>`}
   ss+=`<div class="swrap"><button class="stog ${fio?"open":"closed"}" data-act="toggle" data-s="${fsk}"><span style="color:var(--dm)">${i("camera","ic-m")}</span><span style="flex:1">Фото</span><span class="scnt ${files.length>0?"has":""}">${files.length}</span><span class="sarr ${fio?"open":""}">${i("chev","ic-s")}</span></button>${fH}</div>`;
 
-  return`<div class="panel"><div class="panel-in"><div class="panel-hdr"><button class="bk-btn" data-act="back">${i("arrowL","ic-s")} Назад</button><div style="flex:1"><div class="p-nm" style="color:${gc}">${gic(p.gender)} ${esc(pName(id))}</div><div class="p-rl">${esc(p.role)}${!p.core?` · <a href="#" data-act="del" data-id="${id}">удалить</a>`:""}</div></div><div style="text-align:right"><div class="p-pct" style="color:${pcC}">${pc}%</div><div class="p-pctl">заполнено</div></div></div>${ah}${ss}</div></div>`
+  return`<div class="panel"><div class="panel-in"><div class="panel-hdr"><button class="bk-btn" data-act="back">${i("arrowL","ic-s")} Назад</button><div style="flex:1"><div class="p-nm" style="color:${gc}">${gic(p.gender)} ${esc(pName(id))}</div><div class="p-rl">${esc(p.role)}${!p.core?` · <a href="#" data-act="del" data-id="${id}">удалить</a>`:""}</div></div><div style="text-align:right"><div class="p-pct" style="color:${pcC}">${pc}%</div><div class="p-pctl">заполнено</div></div></div>${ah}${searchPanel}${ss}</div></div>`
 }
 
 // ── Citizenship View ──
