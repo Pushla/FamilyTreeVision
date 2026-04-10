@@ -36,13 +36,16 @@ button{cursor:pointer;font-family:var(--fb)}input,textarea{font-family:var(--fb)
 /* Tree */
 .tree-area{padding:8px 10px 16px;overflow-x:auto}
 .tree-box{display:flex;flex-direction:column-reverse;align-items:center;gap:0;min-width:820px;padding:0 0 16px;position:relative}
-.gen-row{width:100%;padding:4px 0}
+.gen-row{width:100%;padding:14px 0;position:relative}
 .gen-banner{text-align:center;padding:4px 0 8px;font-family:var(--fd);font-size:13px;color:var(--gold);font-style:italic;opacity:.7}
-.gen-nodes{display:flex;justify-content:center;align-items:flex-start;gap:6px}
+.gen-nodes{display:flex;justify-content:center;align-items:flex-start;gap:6px;position:relative}
 .fam{display:flex;align-items:flex-start;gap:4px;padding:0 6px;position:relative}
-/* Connector bracket above family */
-.fam::before{content:'';position:absolute;top:-10px;left:25%;right:25%;height:1px;background:rgba(212,169,76,.15);display:none}
-.fam.multi::before{display:block}
+/* Horizontal bracket above multi-person families */
+.fam.multi::before{content:'';position:absolute;top:-1px;left:20%;right:20%;height:1px;background:rgba(212,169,76,.15)}
+/* Vertical connector going DOWN from each fam group (except in the Я row = :first-child in DOM) */
+.gen-row:not(:first-child) .fam::after{content:'';position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);width:1px;height:18px;background:rgba(212,169,76,.2);pointer-events:none}
+/* Vertical connector going UP into the gen-banner area */
+.gen-row:not(:first-child) .gen-nodes::before{content:'';position:absolute;top:-10px;left:50%;width:1px;height:10px;background:rgba(212,169,76,.12)}
 
 .nd{width:106px;background:var(--sf);border:2px solid var(--bd);border-radius:12px;padding:8px 6px 6px;text-align:center;transition:all .25s;cursor:pointer;position:relative;flex-shrink:0}
 .nd:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.3)}
@@ -61,7 +64,6 @@ button{cursor:pointer;font-family:var(--fb)}input,textarea{font-family:var(--fb)
 .add-menu{position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--sf2);border:1px solid var(--bd2);border-radius:10px;padding:5px;z-index:50;min-width:210px;box-shadow:0 12px 32px rgba(0,0,0,.5);display:none}.add-menu.show{display:block}
 .add-menu .am-btn{width:100%;padding:8px 10px;background:transparent;border:none;color:var(--tx);font-size:12px;text-align:left;border-radius:6px;transition:background .15s;display:flex;align-items:center;gap:8px}.am-btn:hover{background:var(--gbg);color:var(--gold)}
 .tree-hint{text-align:center;color:var(--dm);font-size:12px;margin-top:8px;font-style:italic}
-.tree-line{position:absolute;background:rgba(212,169,76,.18);pointer-events:none;z-index:0;border-radius:1px}
 .tree-actions{display:flex;gap:8px;justify-content:center;margin-top:8px}
 
 /* Panel */
