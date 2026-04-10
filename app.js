@@ -152,7 +152,7 @@ function rTree(alMap){
         ns+=`<button class="am-btn" data-act="add-sp" data-id="${core.id}">${i("ring","ic-s")} Супруг(а)</button>`
         if(!hp)ns+=`<button class="am-btn" data-act="add-par" data-id="${core.id}">${i("addP","ic-s")} Родители</button>`
         ns+=`</div></div>`}
-      if(ns)fg+=`<div class="fam${f.length>1?" multi":""}">${ns}</div>`});
+      if(ns){const childLabel=g>=3&&k!=="x"?`<div class="fam-label">↓ ${esc(pName(k))}</div>`:"";fg+=`<div class="fam${f.length>1?" multi":""}">${ns}${childLabel}</div>`}});
     if(fg)rows+=`<div class="gen-row"><div class="gen-banner">${genLabel(g)}</div><div class="gen-nodes">${fg}</div></div>`}
   return`<div class="tree-area"><div class="tree-box">${rows}</div><div class="tree-hint">Нажмите карточку · «+» добавляет родственника</div></div>`
 }
