@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Семейное Древо — Исследование происхождения</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+/* ============================================================
+   REPLACE FIREBASE CONFIG BELOW (see setup instructions)
+   ============================================================ */
+:root {
+  --bg:#0f1118;--surface:#1a1d2e;--surface2:#232740;--border:#2a2e42;--border2:#3a3e55;
+  --gold:#c9a84c;--gold-dim:#8a7535;--gold-bright:#e8c55a;
+  --text:#e8e6e1;--dim:#8b8a87;--dark:#2c2a25;
+  --female:#d4738c;--male:#5b8fd4;
+  --alert:#e85d3a;--alert-bg:rgba(232,93,58,0.12);
+  --green:#5bb88c;--green-bg:rgba(91,184,140,0.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+button{cursor:pointer;font-family:inherit}input,textarea{font-family:inherit}
+
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-text{font-family:Georgia,serif;font-size:17px;font-weight:700;color:var(--gold)}
+.logo-sub{font-size:10px;color:var(--dim)}
+.nav{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.nav-btn{background:transparent;color:var(--dim);border:1px solid var(--border);border-radius:6px;padding:6px 13px;font-size:12px;font-weight:500;transition:all .2s;position:relative}
+.nav-btn.active{background:var(--gold);color:var(--bg);border-color:var(--gold);font-weight:700}
+.nav-btn:hover:not(.active){border-color:var(--gold);color:var(--text)}
+.nav-badge{position:absolute;top:-5px;right:-5px;background:var(--alert);color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:1px 5px;min-width:15px;text-align:center}
+.sm-btn{background:transparent;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:14px;line-height:1;transition:border-color .2s}
+.sm-btn:hover{border-color:var(--gold)}
+.sep{width:1px;height:22px;background:var(--border);margin:0 3px}
+
+.progress-bar{padding:6px 16px 4px;display:flex;align-items:center;gap:10px}
+.progress-track{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--gold-dim),var(--gold));border-radius:3px;transition:width .5s}
+.progress-label{font-size:11px;color:var(--dim);white-space:nowrap}
+.sync-status{font-size:10px;padding:2px 8px;border-radius:10px;display:inline-flex;align-items:center;gap:4px}
+.sync-online{background:var(--green-bg);color:var(--green)}
+.sync-offline{background:rgba(255,255,255,0.06);color:var(--dim)}
+
+.tree-wrap{padding:8px 10px 16px;overflow-x:auto}
+.tree-container{position:relative;width:100%;min-width:820px;height:510px;margin:0 auto;max-width:1100px}
+.tree-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+.tree-node{position:absolute;transform:translate(-50%,-50%);cursor:pointer;z-index:2;animation:slideUp .4s ease-out both}
+.tree-node:hover .node-card{transform:scale(1.08);border-color:var(--gold)!important}
+.node-card{background:var(--surface);border:2px solid var(--border);border-radius:10px;padding:6px 8px;text-align:center;transition:all .2s}
+.node-card.has-alert{border-color:var(--alert);box-shadow:0 0 12px var(--alert-bg)}
+.node-card.has-data-f{border-color:var(--female)}.node-card.has-data-m{border-color:var(--male)}
+.node-icon{font-size:16px;margin-bottom:2px}.node-label{font-size:10px;color:var(--dim);line-height:1.2;white-space:pre-line;margin-bottom:2px}
+.node-name{font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px}
+.node-progress{height:3px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden}
+.node-progress-fill{height:100%;transition:width .3s;border-radius:2px}
+.node-alert-tag{font-size:9px;color:var(--alert);margin-top:2px;font-weight:700}
+.me-node{background:linear-gradient(135deg,var(--gold),var(--gold-dim));border-radius:12px;padding:8px 20px;text-align:center}
+.me-node-text{font-size:14px;font-weight:700;color:var(--bg)}
+.tree-hint{text-align:center;color:var(--dim);font-size:12px;margin-top:6px}
+.tree-legend{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);display:flex;gap:14px;font-size:10px;color:var(--dim)}
+
+.panel{height:calc(100vh - 82px);overflow-y:auto;padding:0 14px 40px;animation:slideUp2 .3s}
+.panel-inner{max-width:700px;margin:0 auto}
+.panel-header{display:flex;align-items:center;gap:10px;padding:14px 0 10px;border-bottom:1px solid var(--border);margin-bottom:14px;position:sticky;top:0;background:var(--bg);z-index:10}
+.back-btn{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 13px;color:var(--text);font-size:13px;transition:border-color .2s}
+.back-btn:hover{border-color:var(--gold)}
+.panel-name{font-size:17px;font-weight:700;font-family:Georgia,serif}
+.panel-role{font-size:11px;color:var(--dim)}
+.panel-pct-num{font-size:20px;font-weight:700;font-family:Georgia,serif}
+.panel-pct-label{font-size:10px;color:var(--dim)}
+
+.alert-box{background:var(--alert-bg);border:1px solid var(--alert);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.alert-title{font-size:13px;font-weight:700;color:var(--alert);margin-bottom:4px}
+.alert-markers{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.alert-marker{background:rgba(232,93,58,0.25);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;color:var(--alert)}
+.alert-desc{font-size:11px;color:var(--dim)}
+
+.section-toggle{width:100%;display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--text);text-align:left;font-size:13px;font-weight:600;transition:background .2s}
+.section-toggle:hover{background:var(--surface2)}
+.section-toggle.open{border-radius:10px 10px 0 0}.section-toggle.closed{border-radius:10px}
+.section-body{background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;padding:8px 12px 12px}
+.section-wrap{margin-bottom:7px}
+.section-count{font-size:10px;color:var(--dim);padding:2px 7px;border-radius:10px}
+.section-count.has{background:var(--green-bg);color:var(--green)}
+.section-arrow{font-size:11px;color:var(--dim);transition:transform .2s}.section-arrow.open{transform:rotate(180deg)}
+
+.field{margin-bottom:9px}
+.field-label{display:block;font-size:11px;font-weight:600;color:var(--dim);margin-bottom:3px}
+.field-label.critical{color:var(--gold)}
+.field-badge{margin-left:5px;font-size:9px;background:var(--gold-dim);color:var(--bg);padding:1px 5px;border-radius:4px;font-weight:700}
+.field-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 9px;color:var(--text);font-size:13px;outline:none;transition:border-color .2s}
+.field-input:focus{border-color:var(--gold)}.field-input::placeholder{color:#555}
+textarea.field-input{resize:vertical;min-height:80px}
+
+.gq-title{font-family:Georgia,serif;font-size:20px;font-weight:700;color:var(--gold);margin-bottom:4px}
+.gq-desc{font-size:12px;color:var(--dim);margin-bottom:16px;line-height:1.5}
+.gq-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.gq-q{font-size:13px;font-weight:600;color:var(--text);margin-bottom:7px;line-height:1.4}
+.gq-num{color:var(--gold);font-family:Georgia,serif;margin-right:5px}
+
+.alerts-empty{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:30px;text-align:center}
+.alert-group{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.alert-group-title{font-size:14px;font-weight:700;color:var(--alert);margin-bottom:8px}
+.alert-person{display:flex;align-items:center;gap:9px;padding:7px 9px;background:var(--bg);border-radius:6px;margin-bottom:4px;cursor:pointer;border:1px solid transparent;transition:border-color .2s}
+.alert-person:hover{border-color:var(--gold)}
+
+.lobby{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 60px);padding:20px}
+.lobby-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 36px;max-width:440px;width:100%;text-align:center}
+.lobby-icon{font-size:48px;margin-bottom:12px}
+.lobby-title{font-family:Georgia,serif;font-size:24px;font-weight:700;color:var(--gold);margin-bottom:6px}
+.lobby-desc{font-size:13px;color:var(--dim);margin-bottom:28px;line-height:1.5}
+.lobby-btn{width:100%;padding:12px;border-radius:10px;font-size:14px;font-weight:700;border:none;margin-bottom:10px;transition:opacity .2s}
+.lobby-btn:hover{opacity:0.85}
+.lobby-btn.primary{background:var(--gold);color:var(--bg)}
+.lobby-btn.secondary{background:transparent;border:1px solid var(--border);color:var(--text)}
+.lobby-divider{color:var(--dim);font-size:12px;margin:16px 0;display:flex;align-items:center;gap:10px}
+.lobby-divider::before,.lobby-divider::after{content:"";flex:1;height:1px;background:var(--border)}
+.lobby-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-size:16px;text-align:center;letter-spacing:4px;font-weight:700;outline:none;margin-bottom:10px}
+.lobby-input:focus{border-color:var(--gold)}
+.lobby-input::placeholder{letter-spacing:1px;font-weight:400}
+.lobby-link{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:16px;display:flex;align-items:center;gap:8px}
+.lobby-link input{flex:1;background:transparent;border:none;color:var(--gold);font-size:12px;outline:none;font-family:monospace}
+.lobby-link button{background:var(--gold);color:var(--bg);border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600}
+.lobby-error{color:var(--alert);font-size:12px;margin-top:8px}
+
+.share-bar{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:0 16px 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.share-code{font-family:monospace;font-size:16px;font-weight:700;color:var(--gold);letter-spacing:2px}
+.share-copy{background:var(--gold);color:var(--bg);border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600}
+
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--bg);padding:9px 22px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;animation:fadeIn .3s}
+
+@keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes slideUp{from{opacity:0;transform:translate(-50%,-50%) translateY(15px)}to{opacity:1;transform:translate(-50%,-50%) translateY(0)}}
+@keyframes slideUp2{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:600px){.header{padding:8px 10px}.nav-btn{padding:5px 9px;font-size:11px}.lobby-card{padding:28px 20px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  🔧 FIREBASE CONFIG — ЗАМЕНИТЕ НА СВОИ ДАННЫЕ              ║
+// ║  Инструкция: см. README или сообщение в чате Claude         ║
+// ╚══════════════════════════════════════════════════════════════╝
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAObYDV9zB8DguOJC-krGFqwSHl4SAdW94",
+  authDomain: "familytreevision.firebaseapp.com",
+  projectId: "familytreevision",
+  storageBucket: "familytreevision.firebasestorage.app",
+  messagingSenderId: "159441682554",
+  appId: "1:159441682554:web:706b36833acd785757fbc3",
+  measurementId: "G-9K8ZVY9XRC"
+};
+
+const IS_FIREBASE_CONFIGURED = FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY";
+let db = null;
+let unsubscribe = null;
+
+if (IS_FIREBASE_CONFIGURED) {
+  try { firebase.initializeApp(FIREBASE_CONFIG); db = firebase.firestore(); } catch(e) { console.error("Firebase init failed:", e); }
+}
+
+// ── Data ──
+const LS_KEY = "family-tree-v3";
+const FIELDS=[{section:"Основные данные",icon:"👤",fields:[{key:"surname",label:"Фамилия (текущая)",ph:"Иванов"},{key:"maidenName",label:"Фамилия при рождении",ph:"Если менялась"},{key:"otherNames",label:"Другие варианты фамилии",ph:"По браку, русифицированные..."},{key:"firstName",label:"Имя",ph:"Полное имя"},{key:"patronymic",label:"Отчество",ph:""},{key:"birthDate",label:"Дата рождения",ph:"ДД.ММ.ГГГГ или хотя бы год"},{key:"birthPlace",label:"Место рождения",ph:"Страна, область, район, город/село",critical:true},{key:"deathDate",label:"Дата смерти",ph:"Если применимо"},{key:"deathPlace",label:"Место смерти",ph:""}]},{section:"Национальность и корни",icon:"🌍",fields:[{key:"passportNat",label:"Национальность по паспорту",ph:"Графа «5» советского паспорта",critical:true},{key:"actualNat",label:"Фактическая национальность",ph:"Как себя считал(а)"},{key:"nativeLang",label:"Родной язык",ph:"На каком языке говорил(а) дома",critical:true},{key:"otherLangs",label:"Другие языки",ph:"Идиш, румынский, немецкий, польский..."},{key:"religion",label:"Вероисповедание",ph:"Православие, католичество, иудаизм, лютеранство..."},{key:"citizenship",label:"Гражданство",ph:"СССР, Румыния, Польша..."}]},{section:"Место жительства",icon:"📍",fields:[{key:"before1917",label:"До 1917 года",ph:"Губерния, уезд, село/город"},{key:"period1918",label:"1918–1940",ph:"ВАЖНО! Страна, область, район",critical:true},{key:"period1941",label:"1941–1945",ph:"Эвакуация, фронт, оккупация?"},{key:"after1945",label:"После 1945",ph:"Основные адреса / города"}]},{section:"Репрессии и война",icon:"⚔️",fields:[{key:"warService",label:"Участие в ВОВ",ph:"Воевал(а)? Где, звание?"},{key:"repression",label:"Репрессии",ph:"Арест, ссылка, лагерь?",critical:true},{key:"deportation",label:"Депортация",ph:"Откуда, куда, когда?",critical:true},{key:"evacuation",label:"Эвакуация",ph:"Откуда и куда?"}]},{section:"Семья и работа",icon:"👨‍👩‍👧",fields:[{key:"education",label:"Образование",ph:"Где учился/училась"},{key:"profession",label:"Профессия",ph:"Кем работал(а)"},{key:"spouseName",label:"Супруг(а) — ФИО",ph:"Полное имя, девичья фамилия"},{key:"spouseNat",label:"Национальность супруга",ph:""},{key:"spouseBirth",label:"Место рождения супруга",ph:""}]},{section:"Документы и память",icon:"📜",fields:[{key:"documents",label:"Сохранившиеся документы",ph:"Паспорта, свидетельства, военные билеты...",critical:true},{key:"photos",label:"Старые фотографии",ph:"Есть ли? С подписями?"},{key:"letters",label:"Письма, дневники",ph:"На каком языке? Откуда?"},{key:"notes",label:"Заметки и воспоминания",ph:"Любые семейные истории...",multi:true}]}];
+const ALL_KEYS=FIELDS.flatMap(s=>s.fields.map(f=>f.key));
+const MARKERS=["бессараб","кишинёв","кишинев","бельц","тирасполь","бендер","хотин","аккерман","белгород-днестров","измаил","болград","килия","бричан","сорок","оргеев","унген","кагул","комрат","тараклия","молдав","молдов","черновц","буковин","сторожинец","вижниц","кицман","заставн","кельменц","герца","закарпат","ужгород","мукачев","берегов","львов","тернопол","ивано-франк","станислав","галиц","вильн","каунас","литв","латв","рига","эстон","таллин","варшав","краков","польш","люблин","поволж","немц","deutsch","шваб","колони","еврей","иудаизм","идиш","синагог","местечк","грек","греч","мариупол","урум","болгар","румын","roman","попеску","молдован","венгр","мадьяр","трансильван","католи","лютеран","греко-католи","униат","депортац","репресс","ссылк","лагер","расстрел"];
+const MARKER_GROUPS={"🇷🇴 Румыния / Молдова":["бессараб","кишинёв","кишинев","бельц","тирасполь","бендер","хотин","аккерман","белгород-днестров","измаил","болград","килия","бричан","сорок","оргеев","унген","кагул","комрат","тараклия","молдав","молдов","черновц","буковин","сторожинец","вижниц","кицман","заставн","кельменц","герца","румын","roman","попеску","молдован"],"🇭🇺 Венгрия":["закарпат","ужгород","мукачев","берегов","венгр","мадьяр","трансильван"],"🇵🇱 Польша":["львов","тернопол","ивано-франк","станислав","галиц","варшав","краков","польш","люблин"],"🇱🇹 Литва":["вильн","каунас","литв"],"🇱🇻 Латвия":["латв","рига"],"🇪🇪 Эстония":["эстон","таллин"],"🇩🇪 Германия":["поволж","немц","deutsch","шваб","колони","лютеран"],"🇮🇱 Израиль":["еврей","иудаизм","идиш","синагог","местечк"],"🇬🇷 Греция":["грек","греч","мариупол","урум"],"🇧🇬 Болгария":["болгар"],"⛪ Религиозный маркер":["католи","греко-католи","униат"],"⚠️ Репрессии":["депортац","репресс","ссылк","лагер","расстрел"]};
+const TREE={me:{label:"Я",level:0,gender:"self"},father:{label:"Отец",level:1,gender:"m",parent:"me"},mother:{label:"Мать",level:1,gender:"f",parent:"me"},gm_pat:{label:"Бабушка\n(по отцу)",level:2,gender:"f",parent:"father"},gf_pat:{label:"Дедушка\n(по отцу)",level:2,gender:"m",parent:"father"},gm_mat:{label:"Бабушка\n(по матери)",level:2,gender:"f",parent:"mother"},gf_mat:{label:"Дедушка\n(по матери)",level:2,gender:"m",parent:"mother"},ggm_pat1:{label:"Прабабушка",level:3,gender:"f",parent:"gm_pat"},ggf_pat1:{label:"Прадедушка",level:3,gender:"m",parent:"gm_pat"},ggm_pat2:{label:"Прабабушка",level:3,gender:"f",parent:"gf_pat"},ggf_pat2:{label:"Прадедушка",level:3,gender:"m",parent:"gf_pat"},ggm_mat1:{label:"Прабабушка",level:3,gender:"f",parent:"gm_mat"},ggf_mat1:{label:"Прадедушка",level:3,gender:"m",parent:"gm_mat"},ggm_mat2:{label:"Прабабушка",level:3,gender:"f",parent:"gf_mat"},ggf_mat2:{label:"Прадедушка",level:3,gender:"m",parent:"gf_mat"}};
+const POS={me:{x:50,y:88},father:{x:25,y:66},mother:{x:75,y:66},gm_pat:{x:12.5,y:44},gf_pat:{x:37.5,y:44},gm_mat:{x:62.5,y:44},gf_mat:{x:87.5,y:44},ggm_pat1:{x:6.25,y:18},ggf_pat1:{x:18.75,y:18},ggm_pat2:{x:31.25,y:18},ggf_pat2:{x:43.75,y:18},ggm_mat1:{x:56.25,y:18},ggf_mat1:{x:68.75,y:18},ggm_mat2:{x:81.25,y:18},ggf_mat2:{x:93.75,y:18}};
+const GQ=["Были ли в семье разговоры о «нерусских» корнях?","Были ли люди с необычными фамилиями? На -еску, -ану, -ски, -берг, -штейн, -ис, -ян?","Говорил ли кто-то из старших на другом языке, кроме русского?","Была ли не-православная религия? Католичество, иудаизм, лютеранство?","Были ли репрессированные, депортированные? Кто, когда, откуда?","Откуда семья оказалась в том городе, где вы выросли?","Сохранились ли старые документы: паспорта, свидетельства, метрики?","Есть ли фотоальбомы с фото до 1950-х? На каком языке подписи?","Помните ли названия деревень/городов, откуда были родом старшие?","Есть ли «хранитель семейной памяти» среди родственников?","Была ли смена фамилии, имени или отчества?","Были ли «запретные темы» — о чём старшие молчали?"];
+
+let state={persons:{},general:{},view:"lobby",selected:null,openSections:{},roomId:null,synced:false};
+
+function genCode(){const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let r="";for(let i=0;i<6;i++)r+=c[Math.floor(Math.random()*c.length)];return r}
+function getMarkers(p){if(!p)return[];const t=Object.values(p).join(" ").toLowerCase();return[...new Set(MARKERS.filter(m=>t.includes(m)))]}
+function getCompletion(p){if(!p)return 0;return Math.round(ALL_KEYS.filter(k=>p[k]?.trim?.()).length/ALL_KEYS.length*100)}
+function getAllAlerts(){const r=[];Object.keys(TREE).forEach(id=>{if(id==="me")return;getMarkers(state.persons[id]).forEach(m=>r.push({person:id,marker:m}))});return r}
+function getMarkerGroup(m){for(const[g,ms]of Object.entries(MARKER_GROUPS)){if(ms.includes(m))return g}return"Другое"}
+function esc(s){const d=document.createElement("div");d.textContent=s||"";return d.innerHTML}
+function showToast(msg){const el=document.createElement("div");el.className="toast";el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2500)}
+
+// ── Storage ──
+function saveLocal(){try{localStorage.setItem(LS_KEY,JSON.stringify({persons:state.persons,general:state.general,roomId:state.roomId}))}catch{}}
+function loadLocal(){try{const d=localStorage.getItem(LS_KEY);if(d){const p=JSON.parse(d);state.persons=p.persons||{};state.general=p.general||{};if(p.roomId)state.roomId=p.roomId}}catch{}}
+
+// ── Firebase sync ──
+async function saveCloud(){
+  if(!db||!state.roomId)return;
+  try{await db.collection("rooms").doc(state.roomId).set({persons:state.persons,general:state.general,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});state.synced=true}catch(e){console.error("Cloud save failed:",e)}
+}
+function listenCloud(){
+  if(!db||!state.roomId)return;
+  if(unsubscribe)unsubscribe();
+  unsubscribe=db.collection("rooms").doc(state.roomId).onSnapshot(snap=>{
+    if(snap.exists){const d=snap.data();state.persons=d.persons||{};state.general=d.general||{};state.synced=true;saveLocal();render()}
+  },e=>{console.error("Listen error:",e);state.synced=false});
+}
+async function createRoom(){
+  const code=genCode();
+  if(db){try{await db.collection("rooms").doc(code).set({persons:{},general:{},createdAt:firebase.firestore.FieldValue.serverTimestamp()});state.roomId=code;state.persons={};state.general={};state.synced=true;saveLocal();listenCloud()}catch(e){console.error(e)}}
+  else{state.roomId=code;saveLocal()}
+  state.view="tree";render();updateURL()
+}
+async function joinRoom(code){
+  code=code.toUpperCase().trim();if(code.length<4)return;
+  if(db){try{const snap=await db.collection("rooms").doc(code).get();if(!snap.exists){showToast("Комната не найдена");return}const d=snap.data();state.persons=d.persons||{};state.general=d.general||{};state.roomId=code;state.synced=true;saveLocal();listenCloud()}catch(e){showToast("Ошибка подключения");return}}
+  else{state.roomId=code;saveLocal()}
+  state.view="tree";render();updateURL()
+}
+function updateURL(){if(state.roomId)history.replaceState(null,"",`?room=${state.roomId}`)}
+
+let saveTimer=null;
+function saveData(){
+  saveLocal();
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{if(db&&state.roomId)saveCloud()},1200);
+}
+
+// ── Init ──
+function init(){
+  loadLocal();
+  const params=new URLSearchParams(location.search);
+  const urlRoom=params.get("room");
+  if(urlRoom){joinRoom(urlRoom);return}
+  if(state.roomId&&db){state.view="tree";listenCloud();render();updateURL();return}
+  if(state.roomId){state.view="tree";render();updateURL();return}
+  state.view="lobby";render()
+}
+
+// ── Render ──
+function render(){
+  const alerts=getAllAlerts();
+  const ids=Object.keys(TREE).filter(k=>k!=="me");
+  const total=ids.reduce((s,k)=>s+getCompletion(state.persons[k]),0);
+  const pct=Math.round(total/(ids.length*100)*100);
+
+  if(state.view==="lobby"){document.getElementById("app").innerHTML=renderLobby();return}
+
+  const syncBadge=IS_FIREBASE_CONFIGURED
+    ?(state.synced?`<span class="sync-status sync-online">☁️ онлайн</span>`:`<span class="sync-status sync-offline">📴 офлайн</span>`)
+    :`<span class="sync-status sync-offline">💾 локально</span>`;
+
+  let html=`
+  <div class="header">
+    <div class="logo"><span style="font-size:22px">🌳</span><div><div class="logo-text">Семейное Древо</div><div class="logo-sub">Исследование происхождения ${syncBadge}</div></div></div>
+    <div class="nav">
+      <button class="nav-btn ${state.view==="tree"&&!state.selected?"active":""}" onclick="go('tree')">Древо</button>
+      <button class="nav-btn ${state.view==="general"?"active":""}" onclick="go('general')">Вопросы</button>
+      <button class="nav-btn ${state.view==="alerts"?"active":""}" onclick="go('alerts')">Находки${alerts.length?`<span class="nav-badge">${alerts.length}</span>`:""}</button>
+      <span class="sep"></span>
+      <button class="sm-btn" onclick="doExport()" title="Экспорт">💾</button>
+      <button class="sm-btn" onclick="doImport()" title="Импорт">📂</button>
+      <button class="sm-btn" onclick="doReset()" title="Сбросить">🗑️</button>
+    </div>
+  </div>
+  <div class="progress-bar"><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div><span class="progress-label">${pct}% заполнено</span></div>`;
+
+  if(state.roomId){
+    const link=location.origin+location.pathname+`?room=${state.roomId}`;
+    html+=`<div class="share-bar"><span style="font-size:12px;color:var(--dim)">Код комнаты:</span><span class="share-code">${state.roomId}</span><button class="share-copy" onclick="copyLink()">Скопировать ссылку</button></div>`;
+  }
+
+  if(state.view==="tree"&&!state.selected)html+=renderTree(alerts);
+  else if(state.view==="tree"&&state.selected)html+=renderPerson(state.selected);
+  else if(state.view==="general")html+=renderGeneral();
+  else if(state.view==="alerts")html+=renderAlerts(alerts);
+
+  document.getElementById("app").innerHTML=html;
+}
+
+function renderLobby(){
+  return `<div class="lobby"><div class="lobby-card">
+    <div class="lobby-icon">🌳</div>
+    <div class="lobby-title">Семейное Древо</div>
+    <div class="lobby-desc">Интерактивная анкета для исследования происхождения. Создайте комнату и отправьте ссылку родственникам — все смогут заполнять анкету совместно.</div>
+    <button class="lobby-btn primary" onclick="createRoom()">🆕 Создать новое древо</button>
+    <div class="lobby-divider">или присоединиться к существующему</div>
+    <input class="lobby-input" id="joinInput" placeholder="КОД" maxlength="6" oninput="this.value=this.value.toUpperCase()">
+    <button class="lobby-btn secondary" onclick="joinRoom(document.getElementById('joinInput').value)">Войти по коду</button>
+    ${!IS_FIREBASE_CONFIGURED?`<div style="margin-top:20px;padding:12px;background:var(--alert-bg);border:1px solid var(--alert);border-radius:8px;font-size:11px;color:var(--alert);line-height:1.5">⚠️ Firebase не настроен — данные сохраняются только в этом браузере. Для совместной работы настройте Firebase (см. инструкцию).</div>`:""}
+  </div></div>`;
+}
+
+function renderTree(alerts){
+  const alertMap={};alerts.forEach(a=>alertMap[a.person]=true);
+  const conns=Object.entries(TREE).filter(([_,v])=>v.parent).map(([id,v])=>{const f=POS[id],t=POS[v.parent];return`<line x1="${f.x}%" y1="${f.y}%" x2="${t.x}%" y2="${t.y}%" stroke="#8a7535" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.45"/>`}).join("");
+  let nodes="";
+  Object.entries(TREE).forEach(([id,info])=>{
+    const p=POS[id];const w=info.level===3?95:id==="me"?"auto":110;
+    if(id==="me"){nodes+=`<div class="tree-node" style="left:${p.x}%;top:${p.y}%;animation-delay:0ms"><div class="me-node"><div class="me-node-text">Я</div></div></div>`;return}
+    const person=state.persons[id]||{};const pct=getCompletion(person);const hasAlert=alertMap[id];
+    const name=(person.firstName||person.surname)?`${person.firstName||""} ${person.surname||""}`.trim():"";
+    const gc=info.gender==="f"?"has-data-f":"has-data-m";const cls=hasAlert?"has-alert":pct>0?gc:"";
+    const fillColor=pct>60?"var(--green)":"var(--gold)";
+    nodes+=`<div class="tree-node" style="left:${p.x}%;top:${p.y}%;animation-delay:${info.level*80}ms;width:${w}px" onclick="selectPerson('${id}')"><div class="node-card ${cls}" style="width:${w}px"><div class="node-icon">${info.gender==="f"?"👩":"👨"}</div><div class="node-label">${esc(info.label)}</div>${name?`<div class="node-name">${esc(name)}</div>`:""}<div class="node-progress"><div class="node-progress-fill" style="width:${pct}%;background:${fillColor}"></div></div>${hasAlert?`<div class="node-alert-tag">⚡ ЗАЦЕПКА</div>`:""}</div></div>`
+  });
+  return`<div class="tree-wrap"><div class="tree-container"><svg class="tree-svg">${conns}</svg>${nodes}<div class="tree-legend"><span>👩 женщина</span><span>👨 мужчина</span><span style="color:var(--alert)">⚡ зацепка</span></div></div><div class="tree-hint">Нажмите на родственника, чтобы заполнить информацию</div></div>`;
+}
+
+function renderPerson(id){
+  const info=TREE[id];const person=state.persons[id]||{};const markers=getMarkers(person);const pct=getCompletion(person);
+  const gc=info.gender==="f"?"var(--female)":"var(--male)";const pctColor=pct>60?"var(--green)":"var(--gold)";
+  const icon=info.gender==="f"?"👩":"👨";const dn=person.firstName||info.label;const ds=person.surname?` <span style="color:var(--dim)">${esc(person.surname)}</span>`:"";
+  let alertHtml="";
+  if(markers.length){alertHtml=`<div class="alert-box"><div class="alert-title">⚡ Обнаружены потенциальные зацепки!</div><div class="alert-markers">${markers.map(m=>`<span class="alert-marker">${esc(m)}</span>`).join("")}</div><div class="alert-desc">Могут указывать на территории бывшей Румынии, Польши, Германии, Прибалтики или еврейское/немецкое/греческое происхождение.</div></div>`}
+  let sects="";
+  FIELDS.forEach((section,si)=>{
+    const sKey=`${id}_${si}`;const isOpen=state.openSections[sKey]!==false;const filled=section.fields.filter(f=>person[f.key]?.trim?.()).length;
+    let flds="";
+    if(isOpen){section.fields.forEach(f=>{const val=person[f.key]||"";const lc=f.critical?"field-label critical":"field-label";const badge=f.critical?`<span class="field-badge">ВАЖНО</span>`:"";
+      if(f.multi){flds+=`<div class="field"><label class="${lc}">${esc(f.label)}${badge}</label><textarea class="field-input" placeholder="${esc(f.ph)}" data-person="${id}" data-field="${f.key}" oninput="updateField(this)">${esc(val)}</textarea></div>`}
+      else{flds+=`<div class="field"><label class="${lc}">${esc(f.label)}${badge}</label><input type="text" class="field-input" placeholder="${esc(f.ph)}" value="${esc(val)}" data-person="${id}" data-field="${f.key}" oninput="updateField(this)"></div>`}
+    });flds=`<div class="section-body">${flds}</div>`}
+    sects+=`<div class="section-wrap"><button class="section-toggle ${isOpen?"open":"closed"}" onclick="toggleSection('${sKey}')"><span style="font-size:15px">${section.icon}</span><span class="section-name" style="flex:1">${esc(section.section)}</span><span class="section-count ${filled>0?"has":""}">${filled}/${section.fields.length}</span><span class="section-arrow ${isOpen?"open":""}">▼</span></button>${flds}</div>`
+  });
+  return`<div class="panel"><div class="panel-inner"><div class="panel-header"><button class="back-btn" onclick="go('tree')">← Назад</button><div style="flex:1"><div class="panel-name" style="color:${gc}">${icon} ${esc(dn)}${ds}</div><div class="panel-role">${esc(info.label)}</div></div><div style="text-align:right"><div class="panel-pct-num" style="color:${pctColor}">${pct}%</div><div class="panel-pct-label">заполнено</div></div></div>${alertHtml}${sects}</div></div>`;
+}
+
+function renderGeneral(){
+  let cards="";GQ.forEach((q,i)=>{const val=state.general[`q${i}`]||"";cards+=`<div class="gq-card"><div class="gq-q"><span class="gq-num">${i+1}.</span>${esc(q)}</div><textarea class="field-input" rows="3" placeholder="Ваш ответ..." data-gq="${i}" oninput="updateGQ(this)">${esc(val)}</textarea></div>`});
+  return`<div class="panel"><div class="panel-inner"><div class="gq-title">Общие вопросы о семье</div><div class="gq-desc">Помогают выявить корни, о которых семья могла «забыть». Даже «вроде слышал(а)» — ценная информация.</div>${cards}</div></div>`;
+}
+
+function renderAlerts(alerts){
+  if(!alerts.length)return`<div class="panel"><div class="panel-inner"><div class="gq-title">Обнаруженные зацепки</div><div class="gq-desc">Система проверяет данные на совпадения с территориями и маркерами.</div><div class="alerts-empty"><div style="font-size:38px;margin-bottom:8px">🔍</div><div style="font-size:14px;color:var(--dim)">Зацепок пока нет. Заполняйте информацию — проверка автоматическая.</div></div></div></div>`;
+  const grouped={};alerts.forEach(a=>{const g=getMarkerGroup(a.marker);if(!grouped[g])grouped[g]={};if(!grouped[g][a.person])grouped[g][a.person]=[];grouped[g][a.person].push(a.marker)});
+  let gh="";Object.entries(grouped).forEach(([group,persons])=>{let ph="";Object.entries(persons).forEach(([pid,ms])=>{const p=state.persons[pid]||{};const name=(p.firstName||p.surname)?`${p.firstName||""} ${p.surname||""}`.trim():TREE[pid]?.label;const icon=TREE[pid]?.gender==="f"?"👩":"👨";ph+=`<div class="alert-person" onclick="selectPerson('${pid}')"><span>${icon}</span><div style="flex:1"><div style="font-size:12px;font-weight:600">${esc(name)}</div><div style="font-size:10px;color:var(--dim)">${esc(TREE[pid]?.label)}</div></div><div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end">${ms.map(m=>`<span class="alert-marker">${esc(m)}</span>`).join("")}</div><span style="color:var(--dim);font-size:12px">→</span></div>`});gh+=`<div class="alert-group"><div class="alert-group-title">${esc(group)}</div>${ph}</div>`});
+  return`<div class="panel"><div class="panel-inner"><div class="gq-title">Обнаруженные зацепки</div><div class="gq-desc">Автоматическая проверка введённых данных.</div>${gh}</div></div>`;
+}
+
+// ── Handlers ──
+window.go=function(v){state.view=v;state.selected=null;render()};
+window.selectPerson=function(id){state.view="tree";state.selected=id;render()};
+window.toggleSection=function(k){state.openSections[k]=state.openSections[k]===false?true:false;render()};
+
+let fieldTimer=null;
+window.updateField=function(el){
+  const id=el.dataset.person,key=el.dataset.field;if(!state.persons[id])state.persons[id]={};state.persons[id][key]=el.value;
+  clearTimeout(fieldTimer);fieldTimer=setTimeout(()=>{saveData();render()},1000);
+};
+window.updateGQ=function(el){state.general[`q${el.dataset.gq}`]=el.value;clearTimeout(fieldTimer);fieldTimer=setTimeout(()=>saveData(),1000)};
+
+window.copyLink=function(){
+  const link=location.origin+location.pathname+`?room=${state.roomId}`;
+  navigator.clipboard.writeText(link).then(()=>showToast("Ссылка скопирована!")).catch(()=>{
+    const inp=document.createElement("input");inp.value=link;document.body.appendChild(inp);inp.select();document.execCommand("copy");inp.remove();showToast("Ссылка скопирована!");
+  });
+};
+window.doExport=function(){
+  const blob=new Blob([JSON.stringify({persons:state.persons,general:state.general},null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="family-tree-backup.json";a.click();URL.revokeObjectURL(a.href);showToast("Данные экспортированы")
+};
+window.doImport=function(){
+  const inp=document.createElement("input");inp.type="file";inp.accept=".json";
+  inp.onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(d.persons){state.persons=d.persons;state.general=d.general||{};saveData();render();showToast("Данные импортированы")}}catch{showToast("Ошибка формата")}};inp.click()
+};
+window.doReset=function(){if(confirm("Удалить все данные? Необратимо.")){state.persons={};state.general={};saveData();state.selected=null;render()}};
+
+init();
+</script>
+</body>
+</html>
