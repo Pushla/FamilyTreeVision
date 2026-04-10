@@ -70,7 +70,19 @@ async function joinRoom(code){code=(code||"").toUpperCase().trim();if(code.lengt
 function addSib(ofId){const o=S.tree[ofId];if(!o)return;const id=uid(),g=o.gender==="f"?"m":"f";S.tree[id]={id,role:g==="f"?"Сестра":"Брат",gen:o.gen,gender:g,core:0,siblingOf:ofId,parentOf:o.parentOf};S.data[id]={};save();S.am=null;render()}
 function addSp(ofId){const o=S.tree[ofId];if(!o)return;const id=uid(),g=o.gender==="f"?"m":"f";S.tree[id]={id,role:g==="f"?"Супруга":"Супруг",gen:o.gen,gender:g,core:0,spouseOf:ofId};S.data[id]={};save();S.am=null;render()}
 function addPar(ofId){const o=S.tree[ofId];if(!o)return;const ng=o.gen+1;const a=uid(),b=uid();S.tree[a]={id:a,role:"Мать",gen:ng,gender:"f",core:0,parentOf:ofId};S.tree[b]={id:b,role:"Отец",gen:ng,gender:"m",core:0,parentOf:ofId};S.data[a]={};S.data[b]={};save();S.am=null;render()}
-function delPerson(id){if(S.tree[id]?.core){toast("Основных нельзя удалить");return}if(!confirm("Удалить "+pName(id)+"?"))return;Object.keys(S.tree).forEach(k=>{const t=S.tree[k];if(t&&(t.siblingOf===id||t.spouseOf===id)){delete S.tree[k];delete S.data[k];delete S.files[k]}});delete S.tree[id];delete S.data[id];delete S.files[id];if(S.sel===id)S.sel=null;save();render()}
+function delPerson(id){
+  console.log("[DEL] Attempting to delete:",id,"node:",S.tree[id]);
+  if(!S.tree[id]){console.error("[DEL] Node not found in tree!");toast("Узел не найден");return}
+  if(S.tree[id].core){console.log("[DEL] Blocked: core node");toast("Основных нельзя удалить");return}
+  if(!confirm("Удалить "+pName(id)+"?"))return;
+  console.log("[DEL] Confirmed. Deleting",id,"and cascading...");
+  const cascade=[];
+  Object.keys(S.tree).forEach(k=>{const t=S.tree[k];if(t&&(t.siblingOf===id||t.spouseOf===id)){cascade.push(k);delete S.tree[k];delete S.data[k];delete S.files[k]}});
+  if(cascade.length)console.log("[DEL] Cascade deleted:",cascade);
+  delete S.tree[id];delete S.data[id];delete S.files[id];
+  if(S.sel===id)S.sel=null;
+  console.log("[DEL] Done. Tree now has",Object.keys(S.tree).length,"nodes");
+  save();render()}
 
 // ── Citizenship check ──
 function checkCit(){const res=[];Object.entries(S.tree).forEach(([id,p])=>{if(id==="me")return;const d=S.data[id]||{};const tx=Object.values(d).join(" ").toLowerCase();if(!tx.trim())return;CIT.forEach(rule=>{const matched=rule.mk.filter(m=>tx.includes(m));if(!matched.length)return;if(res.find(r=>r.c===rule.c&&r.pid===id))return;const conf=p.gen<=rule.mg&&matched.length>=2?"high":p.gen<=rule.mg?"medium":"low";res.push({...rule,pid:id,pn:pName(id),gen:p.gen,gn:genLabel(p.gen),conf,matched})})});res.sort((a,b)=>{const o={high:0,medium:1,low:2};return o[a.conf]-o[b.conf]});return res}
@@ -80,6 +92,43 @@ function archLinks(pid){const d=S.data[pid]||{},sn=d.surname||d.maidenName||"",f
 
 // ── Image compress ──
 function compress(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>{const img=new Image();img.onload=()=>{const c=document.createElement("canvas");let w=img.width,h=img.height;if(w>500){h=h*(500/w);w=500}c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);res(c.toDataURL("image/jpeg",.6))};img.src=e.target.result};r.onerror=rej;r.readAsDataURL(file)})}
+
+// ── Tree connection lines ──
+function drawLines(){
+  // Remove old lines
+  document.querySelectorAll(".tree-line").forEach(el=>el.remove());
+  const box=document.querySelector(".tree-box");
+  if(!box)return;
+  const bRect=box.getBoundingClientRect();
+  // For each person who is a parentOf someone (not sibling/spouse)
+  Object.entries(S.tree).forEach(([id,p])=>{
+    if(!p.parentOf||p.siblingOf||p.spouseOf)return;
+    // Find DOM nodes
+    const parentEl=box.querySelector(`[data-id="${id}"][data-act="sel"]`);
+    const childEl=box.querySelector(`[data-id="${p.parentOf}"][data-act="sel"]`);
+    if(!parentEl||!childEl)return;
+    const pR=parentEl.getBoundingClientRect();
+    const cR=childEl.getBoundingClientRect();
+    const px=pR.left+pR.width/2-bRect.left;
+    const py=pR.bottom-bRect.top;
+    const cx=cR.left+cR.width/2-bRect.left;
+    const cy=cR.top-bRect.top;
+    // Vertical line from parent down to midpoint
+    const midY=(py+cy)/2;
+    addLine(box,px,py,1,midY-py);
+    // Horizontal line from parent's X to child's X at midpoint
+    const lx=Math.min(px,cx),w=Math.abs(px-cx);
+    if(w>2)addLine(box,lx,midY,w,1);
+    // Vertical line from midpoint down to child
+    addLine(box,cx,midY,1,cy-midY);
+  });
+}
+function addLine(container,x,y,w,h){
+  const d=document.createElement("div");
+  d.className="tree-line";
+  d.style.cssText=`left:${x}px;top:${y}px;width:${Math.max(w,1)}px;height:${Math.max(h,1)}px`;
+  container.appendChild(d);
+}
 
 // ── Render ──
 function render(){
@@ -109,6 +158,9 @@ function render(){
   if(S.modal)h+=S.modal;
 
   $("app").innerHTML=h;
+
+  // Draw tree connection lines after DOM update
+  if(S.view==="tree"&&!S.sel)requestAnimationFrame(()=>requestAnimationFrame(drawLines));
 
   // Viewer card
   const vc=document.getElementById("viewer-card");if(vc)vc.remove();
@@ -228,6 +280,7 @@ document.addEventListener("click",e=>{
   const t=e.target, act=t.closest("[data-act]");
   if(!act)return;
   const a=act.dataset.act, id=act.dataset.id;
+  console.log("[CLICK] act:",a,"id:",id,"element:",act.tagName,act.className);
   e.stopPropagation();
 
   // Navigation
@@ -238,7 +291,7 @@ document.addEventListener("click",e=>{
   if(a==="sel"){S.sel=id;S.view="tree";render();return}
 
   // Delete person
-  if(a==="del"){e.preventDefault();delPerson(id);return}
+  if(a==="del"){console.log("[CLICK] Delete action, id:",id,"target:",t.tagName,t.className);e.preventDefault();delPerson(id);return}
 
   // Add menu
   if(a==="menu"){S.am=S.am===id?null:id;render();return}
