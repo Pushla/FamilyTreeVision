@@ -279,7 +279,7 @@ function showInviteModal(){
   const people=Object.entries(S.tree).filter(([id])=>id!=="me");
   let list=people.map(([id,p])=>{const link=`${location.origin}${location.pathname}?room=${S.rid}&who=${id}`;
     return`<div class="modal-item"><span style="color:${p.gender==="f"?"var(--fem)":"var(--mal)"}">${gic(p.gender)}</span><div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(pName(id))}</div><div style="font-size:10px;color:var(--dm)">${esc(p.role)}</div></div><button class="btn" data-act="copy-invite" data-link="${esc(link)}">${i("copy","ic-s")} Ссылка</button></div>`}).join("");
-  S.modal=`<div class="modal" data-act="close-modal"><div class="modal-c" onclick="event.stopPropagation()"><div class="modal-t">Пригласить родственника</div><div class="modal-d">Выберите кого пригласить. Каждый получит персональную ссылку.</div>${list}</div></div>`;
+  S.modal=`<div class="modal" data-act="close-modal"><div class="modal-c" data-act="modal-stop"><div class="modal-t">Пригласить родственника</div><div class="modal-d">Выберите кого пригласить. Каждый получит персональную ссылку.</div>${list}</div></div>`;
   render()}
 
 // ══════════════════════════════════════════════
@@ -322,6 +322,7 @@ document.addEventListener("click",e=>{
   if(a==="copy-invite"){navigator.clipboard?.writeText(act.dataset.link).then(()=>toast("Ссылка скопирована!"));return}
   if(a==="show-invite"){showInviteModal();return}
   if(a==="close-modal"){S.modal=null;render();return}
+  if(a==="modal-stop")return; // prevent close when clicking inside modal content
 
   // Identity
   if(a==="set-viewer"){S.viewer=id;localStorage.setItem("viewer_"+S.rid,id);S.modal=null;render();return}
