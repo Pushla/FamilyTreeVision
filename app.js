@@ -54,41 +54,52 @@ function genLabel(g){return["","Родители","Бабушки и дедуш�
 function hasParents(id){return Object.values(S.tree).some(p=>p.parentOf===id&&!p.siblingOf&&!p.spouseOf)}
 function pName(pid){const d=S.data[pid]||{};return(d.firstName||d.surname)?`${d.firstName||""} ${d.surname||""}`.trim():S.tree[pid]?.role||"?"}
 
-// ── Storage ──
-function saveL(){try{localStorage.setItem(LS,JSON.stringify({tree:S.tree,data:S.data,general:S.general,rid:S.rid}));localStorage.setItem(LSF,JSON.stringify(S.files))}catch{}}
-function loadL(){try{const d=localStorage.getItem(LS);if(d){const p=JSON.parse(d);if(p.tree)S.tree=p.tree;S.data=p.data||{};S.general=p.general||{};if(p.rid)S.rid=p.rid}const f=localStorage.getItem(LSF);if(f)S.files=JSON.parse(f)}catch{}}
-async function saveC(){if(!db||!S.rid)return;try{S._saving=Date.now();await db.collection("rooms").doc(S.rid).set({tree:S.tree,data:S.data,general:S.general,t:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});S.sync=true}catch(e){console.error(e)}}
+// ── Storage: Firebase = source of truth, localStorage = offline cache ──
+function cacheL(){try{localStorage.setItem(LS,JSON.stringify({tree:S.tree,data:S.data,general:S.general,rid:S.rid}));localStorage.setItem(LSF,JSON.stringify(S.files))}catch{}}
+function loadCache(){try{const d=localStorage.getItem(LS);if(d){const p=JSON.parse(d);if(p.tree)S.tree=p.tree;S.data=p.data||{};S.general=p.general||{};if(p.rid)S.rid=p.rid}const f=localStorage.getItem(LSF);if(f)S.files=JSON.parse(f)}catch{}}
+
+// Save to Firebase immediately (for structural changes: delete, add)
+async function saveNow(){
+  if(!db||!S.rid)return;
+  S._saving=Date.now();
+  try{await db.collection("rooms").doc(S.rid).set({tree:S.tree,data:S.data,general:S.general,t:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});S.sync=true;console.log("[DB] Saved to Firebase")}catch(e){console.error("[DB] Save failed:",e)}
+  cacheL() // also cache locally
+}
+// Save debounced (for field edits while typing)
+let svT=null;
+function saveLater(){cacheL();clearTimeout(svT);svT=setTimeout(()=>saveNow(),1500)}
+
+// Listen for changes from OTHER users
 function listenC(){if(!db||!S.rid)return;if(unsub)unsub();
-  let skipFirst=!!localStorage.getItem(LS); // if we have local data, skip first snapshot to avoid overwriting deletes
   unsub=db.collection("rooms").doc(S.rid).onSnapshot(snap=>{
-    if(skipFirst){skipFirst=false;console.log("[FB] Skipped first snapshot, pushing local→cloud");saveC();return}
-    if(Date.now()-(S._saving||0)<3000){console.log("[FB] Ignoring echo");return}
-    if(snap.exists){const d=snap.data();S.tree=d.tree||mkTree();S.data=d.data||{};S.general=d.general||{};S.sync=true;saveL();render();console.log("[FB] Remote update applied")}
+    if(Date.now()-(S._saving||0)<3000)return; // ignore our own echo
+    if(snap.exists){const d=snap.data();S.tree=d.tree||mkTree();S.data=d.data||{};S.general=d.general||{};S.sync=true;cacheL();render();console.log("[DB] Remote update applied")}
   },()=>{S.sync=false})}
-let svT=null;function save(){saveL();clearTimeout(svT);svT=setTimeout(()=>saveC(),1200)}
 
 // ── Room ──
 function genCode(){const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let r="";for(let j=0;j<6;j++)r+=c[Math.floor(Math.random()*c.length)];return r}
-async function createRoom(){const code=genCode();try{await db.collection("rooms").doc(code).set({tree:S.tree,data:S.data,general:S.general,t:firebase.firestore.FieldValue.serverTimestamp()});S.sync=true}catch{}S.rid=code;saveL();listenC();S.view="tree";render();if(S.rid)history.replaceState(null,"","?room="+S.rid)}
-async function joinRoom(code){code=(code||"").toUpperCase().trim();if(code.length<4)return;try{const snap=await db.collection("rooms").doc(code).get();if(!snap.exists){toast("Не найдена");return}const d=snap.data();S.tree=d.tree||mkTree();S.data=d.data||{};S.general=d.general||{};S.sync=true}catch(e){toast("Ошибка");return}S.rid=code;saveL();listenC();S.view="tree";render();history.replaceState(null,"","?room="+S.rid)}
+async function createRoom(){const code=genCode();S.rid=code;await saveNow();listenC();S.view="tree";render();history.replaceState(null,"","?room="+S.rid)}
+async function joinRoom(code){code=(code||"").toUpperCase().trim();if(code.length<4)return;try{const snap=await db.collection("rooms").doc(code).get();if(!snap.exists){toast("Не найдена");return}const d=snap.data();S.tree=d.tree||mkTree();S.data=d.data||{};S.general=d.general||{};S.sync=true}catch(e){toast("Ошибка");return}S.rid=code;cacheL();listenC();S.view="tree";render();history.replaceState(null,"","?room="+S.rid)}
 
 // ── Tree ops ──
-function addSib(ofId){const o=S.tree[ofId];if(!o)return;const id=uid(),g=o.gender==="f"?"m":"f";S.tree[id]={id,role:g==="f"?"Сестра":"Брат",gen:o.gen,gender:g,core:0,siblingOf:ofId,parentOf:o.parentOf};S.data[id]={};save();S.am=null;render()}
-function addSp(ofId){const o=S.tree[ofId];if(!o)return;const id=uid(),g=o.gender==="f"?"m":"f";S.tree[id]={id,role:g==="f"?"Супруга":"Супруг",gen:o.gen,gender:g,core:0,spouseOf:ofId};S.data[id]={};save();S.am=null;render()}
-function addPar(ofId){const o=S.tree[ofId];if(!o)return;const ng=o.gen+1;const a=uid(),b=uid();S.tree[a]={id:a,role:"Мать",gen:ng,gender:"f",core:0,parentOf:ofId};S.tree[b]={id:b,role:"Отец",gen:ng,gender:"m",core:0,parentOf:ofId};S.data[a]={};S.data[b]={};save();S.am=null;render()}
-function delPerson(id){
+async function addSib(ofId){const o=S.tree[ofId];if(!o)return;const id=uid(),g=o.gender==="f"?"m":"f";S.tree[id]={id,role:g==="f"?"Сестра":"Брат",gen:o.gen,gender:g,core:0,siblingOf:ofId,parentOf:o.parentOf};S.data[id]={};await saveNow();S.am=null;render()}
+async function addSp(ofId){const o=S.tree[ofId];if(!o)return;const id=uid(),g=o.gender==="f"?"m":"f";S.tree[id]={id,role:g==="f"?"Супруга":"Супруг",gen:o.gen,gender:g,core:0,spouseOf:ofId};S.data[id]={};await saveNow();S.am=null;render()}
+async function addPar(ofId){const o=S.tree[ofId];if(!o)return;const ng=o.gen+1;const a=uid(),b=uid();S.tree[a]={id:a,role:"Мать",gen:ng,gender:"f",core:0,parentOf:ofId};S.tree[b]={id:b,role:"Отец",gen:ng,gender:"m",core:0,parentOf:ofId};S.data[a]={};S.data[b]={};await saveNow();S.am=null;render()}
+async function delPerson(id){
   console.log("[DEL] Attempting to delete:",id,"node:",S.tree[id]);
-  if(!S.tree[id]){console.error("[DEL] Node not found in tree!");toast("Узел не найден");return}
+  if(!S.tree[id]){console.error("[DEL] Node not found!");toast("Узел не найден");return}
   if(S.tree[id].core){console.log("[DEL] Blocked: core node");toast("Основных нельзя удалить");return}
   if(!confirm("Удалить "+pName(id)+"?"))return;
-  console.log("[DEL] Confirmed. Deleting",id,"and cascading...");
+  console.log("[DEL] Confirmed. Deleting",id);
   const cascade=[];
   Object.keys(S.tree).forEach(k=>{const t=S.tree[k];if(t&&(t.siblingOf===id||t.spouseOf===id)){cascade.push(k);delete S.tree[k];delete S.data[k];delete S.files[k]}});
   if(cascade.length)console.log("[DEL] Cascade deleted:",cascade);
   delete S.tree[id];delete S.data[id];delete S.files[id];
   if(S.sel===id)S.sel=null;
+  console.log("[DEL] Saving to Firebase...");
+  await saveNow(); // AWAIT — Firebase gets updated BEFORE anything else
   console.log("[DEL] Done. Tree now has",Object.keys(S.tree).length,"nodes");
-  save();if(db&&S.rid)saveC();render()}
+  render()}
 
 // ── Citizenship check ──
 function checkCit(){const res=[];Object.entries(S.tree).forEach(([id,p])=>{if(id==="me")return;const d=S.data[id]||{};const tx=Object.values(d).join(" ").toLowerCase();if(!tx.trim())return;CIT.forEach(rule=>{const matched=rule.mk.filter(m=>tx.includes(m));if(!matched.length)return;if(res.find(r=>r.c===rule.c&&r.pid===id))return;const conf=p.gen<=rule.mg&&matched.length>=2?"high":p.gen<=rule.mg?"medium":"low";res.push({...rule,pid:id,pn:pName(id),gen:p.gen,gn:genLabel(p.gen),conf,matched})})});res.sort((a,b)=>{const o={high:0,medium:1,low:2};return o[a.conf]-o[b.conf]});return res}
@@ -292,8 +303,8 @@ document.addEventListener("click",e=>{
   if(a==="toggle"){const s=act.dataset.s;S.os[s]=S.os[s]===false;render();return}
 
   // Files
-  if(a==="upload"){const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.capture="environment";inp.onchange=async ev=>{const file=ev.target.files[0];if(!file)return;if(!S.files[id])S.files[id]=[];if(S.files[id].length>=8){toast("Макс. 8");return}try{const data=await compress(file);S.files[id].push({name:file.name,data,date:Date.now()});saveL();render();toast("Добавлено")}catch{toast("Ошибка")}};inp.click();return}
-  if(a==="del-file"){const idx=parseInt(act.dataset.idx);if(confirm("Удалить фото?")){S.files[id].splice(idx,1);saveL();render()}return}
+  if(a==="upload"){const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.capture="environment";inp.onchange=async ev=>{const file=ev.target.files[0];if(!file)return;if(!S.files[id])S.files[id]=[];if(S.files[id].length>=8){toast("Макс. 8");return}try{const data=await compress(file);S.files[id].push({name:file.name,data,date:Date.now()});cacheL();render();toast("Добавлено")}catch{toast("Ошибка")}};inp.click();return}
+  if(a==="del-file"){const idx=parseInt(act.dataset.idx);if(confirm("Удалить фото?")){S.files[id].splice(idx,1);cacheL();render()}return}
   if(a==="preview"){S.preview=act.dataset.src;render();return}
   if(a==="close-preview"){S.preview=null;render();return}
 
@@ -313,8 +324,8 @@ document.addEventListener("click",e=>{
 
   // Tools
   if(a==="export"){const b=new Blob([JSON.stringify({tree:S.tree,data:S.data,general:S.general,files:S.files},null,2)],{type:"application/json"});const el=document.createElement("a");el.href=URL.createObjectURL(b);el.download="family-tree.json";el.click();toast("Экспортировано");return}
-  if(a==="import"){const inp=document.createElement("input");inp.type="file";inp.accept=".json";inp.onchange=async ev=>{const f=ev.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(d.tree){S.tree=d.tree;S.data=d.data||{};S.general=d.general||{};S.files=d.files||{};save();render();toast("Импортировано")}}catch{toast("Ошибка")}};inp.click();return}
-  if(a==="reset"){if(confirm("Удалить ВСЕ данные?")){S.tree=mkTree();S.data={};S.general={};S.files={};S.sel=null;save();render()}return}
+  if(a==="import"){const inp=document.createElement("input");inp.type="file";inp.accept=".json";inp.onchange=async ev=>{const f=ev.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(d.tree){S.tree=d.tree;S.data=d.data||{};S.general=d.general||{};S.files=d.files||{};saveNow();render();toast("Импортировано")}}catch{toast("Ошибка")}};inp.click();return}
+  if(a==="reset"){if(confirm("Удалить ВСЕ данные?")){S.tree=mkTree();S.data={};S.general={};S.files={};S.sel=null;saveNow();render()}return}
 });
 
 // Close add-menu on outside click
@@ -323,14 +334,14 @@ document.addEventListener("click",e=>{if(S.am&&!e.target.closest(".add-menu")&&!
 // Input delegation
 document.addEventListener("input",e=>{
   const t=e.target;
-  if(t.dataset.pid&&t.dataset.fld){if(!S.data[t.dataset.pid])S.data[t.dataset.pid]={};S.data[t.dataset.pid][t.dataset.fld]=t.value;clearTimeout(svT);svT=setTimeout(()=>{save();render()},1200);return}
-  if(t.dataset.gq!==undefined){S.general[`q${t.dataset.gq}`]=t.value;clearTimeout(svT);svT=setTimeout(()=>save(),1200);return}
+  if(t.dataset.pid&&t.dataset.fld){if(!S.data[t.dataset.pid])S.data[t.dataset.pid]={};S.data[t.dataset.pid][t.dataset.fld]=t.value;clearTimeout(svT);svT=setTimeout(()=>{saveLater();render()},1500);return}
+  if(t.dataset.gq!==undefined){S.general[`q${t.dataset.gq}`]=t.value;clearTimeout(svT);svT=setTimeout(()=>saveLater(),1500);return}
   if(t.hasAttribute("data-search")){S.search=t.value;render();return}
   if(t.id==="joinCode"){t.value=t.value.toUpperCase()}
 });
 
 // ── Init ──
-loadL();
+loadCache();
 const params=new URLSearchParams(location.search);
 const urlRoom=params.get("room"), urlWho=params.get("who");
 if(urlRoom){joinRoom(urlRoom).then(()=>{if(urlWho&&S.tree[urlWho]){S.viewer=urlWho;localStorage.setItem("viewer_"+S.rid,urlWho);render()}})}
