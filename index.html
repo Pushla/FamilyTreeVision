@@ -2,366 +2,230 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
 <title>Семейное Древо — Исследование происхождения</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
-/* ============================================================
-   REPLACE FIREBASE CONFIG BELOW (see setup instructions)
-   ============================================================ */
-:root {
-  --bg:#0f1118;--surface:#1a1d2e;--surface2:#232740;--border:#2a2e42;--border2:#3a3e55;
-  --gold:#c9a84c;--gold-dim:#8a7535;--gold-bright:#e8c55a;
-  --text:#e8e6e1;--dim:#8b8a87;--dark:#2c2a25;
-  --female:#d4738c;--male:#5b8fd4;
-  --alert:#e85d3a;--alert-bg:rgba(232,93,58,0.12);
-  --green:#5bb88c;--green-bg:rgba(91,184,140,0.12);
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
-::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-button{cursor:pointer;font-family:inherit}input,textarea{font-family:inherit}
-
-.header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:100}
-.logo{display:flex;align-items:center;gap:10px}
-.logo-text{font-family:Georgia,serif;font-size:17px;font-weight:700;color:var(--gold)}
-.logo-sub{font-size:10px;color:var(--dim)}
-.nav{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-.nav-btn{background:transparent;color:var(--dim);border:1px solid var(--border);border-radius:6px;padding:6px 13px;font-size:12px;font-weight:500;transition:all .2s;position:relative}
-.nav-btn.active{background:var(--gold);color:var(--bg);border-color:var(--gold);font-weight:700}
-.nav-btn:hover:not(.active){border-color:var(--gold);color:var(--text)}
-.nav-badge{position:absolute;top:-5px;right:-5px;background:var(--alert);color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:1px 5px;min-width:15px;text-align:center}
-.sm-btn{background:transparent;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:14px;line-height:1;transition:border-color .2s}
-.sm-btn:hover{border-color:var(--gold)}
-.sep{width:1px;height:22px;background:var(--border);margin:0 3px}
-
-.progress-bar{padding:6px 16px 4px;display:flex;align-items:center;gap:10px}
-.progress-track{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
-.progress-fill{height:100%;background:linear-gradient(90deg,var(--gold-dim),var(--gold));border-radius:3px;transition:width .5s}
-.progress-label{font-size:11px;color:var(--dim);white-space:nowrap}
-.sync-status{font-size:10px;padding:2px 8px;border-radius:10px;display:inline-flex;align-items:center;gap:4px}
-.sync-online{background:var(--green-bg);color:var(--green)}
-.sync-offline{background:rgba(255,255,255,0.06);color:var(--dim)}
-
-.tree-wrap{padding:8px 10px 16px;overflow-x:auto}
-.tree-container{position:relative;width:100%;min-width:820px;height:510px;margin:0 auto;max-width:1100px}
-.tree-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
-.tree-node{position:absolute;transform:translate(-50%,-50%);cursor:pointer;z-index:2;animation:slideUp .4s ease-out both}
-.tree-node:hover .node-card{transform:scale(1.08);border-color:var(--gold)!important}
-.node-card{background:var(--surface);border:2px solid var(--border);border-radius:10px;padding:6px 8px;text-align:center;transition:all .2s}
-.node-card.has-alert{border-color:var(--alert);box-shadow:0 0 12px var(--alert-bg)}
-.node-card.has-data-f{border-color:var(--female)}.node-card.has-data-m{border-color:var(--male)}
-.node-icon{font-size:16px;margin-bottom:2px}.node-label{font-size:10px;color:var(--dim);line-height:1.2;white-space:pre-line;margin-bottom:2px}
-.node-name{font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px}
-.node-progress{height:3px;background:var(--border);border-radius:2px;margin-top:4px;overflow:hidden}
-.node-progress-fill{height:100%;transition:width .3s;border-radius:2px}
-.node-alert-tag{font-size:9px;color:var(--alert);margin-top:2px;font-weight:700}
-.me-node{background:linear-gradient(135deg,var(--gold),var(--gold-dim));border-radius:12px;padding:8px 20px;text-align:center}
-.me-node-text{font-size:14px;font-weight:700;color:var(--bg)}
-.tree-hint{text-align:center;color:var(--dim);font-size:12px;margin-top:6px}
-.tree-legend{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);display:flex;gap:14px;font-size:10px;color:var(--dim)}
-
-.panel{height:calc(100vh - 82px);overflow-y:auto;padding:0 14px 40px;animation:slideUp2 .3s}
-.panel-inner{max-width:700px;margin:0 auto}
-.panel-header{display:flex;align-items:center;gap:10px;padding:14px 0 10px;border-bottom:1px solid var(--border);margin-bottom:14px;position:sticky;top:0;background:var(--bg);z-index:10}
-.back-btn{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 13px;color:var(--text);font-size:13px;transition:border-color .2s}
-.back-btn:hover{border-color:var(--gold)}
-.panel-name{font-size:17px;font-weight:700;font-family:Georgia,serif}
-.panel-role{font-size:11px;color:var(--dim)}
-.panel-pct-num{font-size:20px;font-weight:700;font-family:Georgia,serif}
-.panel-pct-label{font-size:10px;color:var(--dim)}
-
-.alert-box{background:var(--alert-bg);border:1px solid var(--alert);border-radius:10px;padding:12px 14px;margin-bottom:14px}
-.alert-title{font-size:13px;font-weight:700;color:var(--alert);margin-bottom:4px}
-.alert-markers{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
-.alert-marker{background:rgba(232,93,58,0.25);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;color:var(--alert)}
-.alert-desc{font-size:11px;color:var(--dim)}
-
-.section-toggle{width:100%;display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--text);text-align:left;font-size:13px;font-weight:600;transition:background .2s}
-.section-toggle:hover{background:var(--surface2)}
-.section-toggle.open{border-radius:10px 10px 0 0}.section-toggle.closed{border-radius:10px}
-.section-body{background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;padding:8px 12px 12px}
-.section-wrap{margin-bottom:7px}
-.section-count{font-size:10px;color:var(--dim);padding:2px 7px;border-radius:10px}
-.section-count.has{background:var(--green-bg);color:var(--green)}
-.section-arrow{font-size:11px;color:var(--dim);transition:transform .2s}.section-arrow.open{transform:rotate(180deg)}
-
-.field{margin-bottom:9px}
-.field-label{display:block;font-size:11px;font-weight:600;color:var(--dim);margin-bottom:3px}
-.field-label.critical{color:var(--gold)}
-.field-badge{margin-left:5px;font-size:9px;background:var(--gold-dim);color:var(--bg);padding:1px 5px;border-radius:4px;font-weight:700}
-.field-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:7px 9px;color:var(--text);font-size:13px;outline:none;transition:border-color .2s}
-.field-input:focus{border-color:var(--gold)}.field-input::placeholder{color:#555}
-textarea.field-input{resize:vertical;min-height:80px}
-
-.gq-title{font-family:Georgia,serif;font-size:20px;font-weight:700;color:var(--gold);margin-bottom:4px}
-.gq-desc{font-size:12px;color:var(--dim);margin-bottom:16px;line-height:1.5}
-.gq-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px}
-.gq-q{font-size:13px;font-weight:600;color:var(--text);margin-bottom:7px;line-height:1.4}
-.gq-num{color:var(--gold);font-family:Georgia,serif;margin-right:5px}
-
-.alerts-empty{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:30px;text-align:center}
-.alert-group{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px}
-.alert-group-title{font-size:14px;font-weight:700;color:var(--alert);margin-bottom:8px}
-.alert-person{display:flex;align-items:center;gap:9px;padding:7px 9px;background:var(--bg);border-radius:6px;margin-bottom:4px;cursor:pointer;border:1px solid transparent;transition:border-color .2s}
-.alert-person:hover{border-color:var(--gold)}
-
-.lobby{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 60px);padding:20px}
-.lobby-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 36px;max-width:440px;width:100%;text-align:center}
-.lobby-icon{font-size:48px;margin-bottom:12px}
-.lobby-title{font-family:Georgia,serif;font-size:24px;font-weight:700;color:var(--gold);margin-bottom:6px}
-.lobby-desc{font-size:13px;color:var(--dim);margin-bottom:28px;line-height:1.5}
-.lobby-btn{width:100%;padding:12px;border-radius:10px;font-size:14px;font-weight:700;border:none;margin-bottom:10px;transition:opacity .2s}
-.lobby-btn:hover{opacity:0.85}
-.lobby-btn.primary{background:var(--gold);color:var(--bg)}
-.lobby-btn.secondary{background:transparent;border:1px solid var(--border);color:var(--text)}
-.lobby-divider{color:var(--dim);font-size:12px;margin:16px 0;display:flex;align-items:center;gap:10px}
-.lobby-divider::before,.lobby-divider::after{content:"";flex:1;height:1px;background:var(--border)}
-.lobby-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-size:16px;text-align:center;letter-spacing:4px;font-weight:700;outline:none;margin-bottom:10px}
-.lobby-input:focus{border-color:var(--gold)}
-.lobby-input::placeholder{letter-spacing:1px;font-weight:400}
-.lobby-link{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:16px;display:flex;align-items:center;gap:8px}
-.lobby-link input{flex:1;background:transparent;border:none;color:var(--gold);font-size:12px;outline:none;font-family:monospace}
-.lobby-link button{background:var(--gold);color:var(--bg);border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600}
-.lobby-error{color:var(--alert);font-size:12px;margin-top:8px}
-
-.share-bar{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:0 16px 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.share-code{font-family:monospace;font-size:16px;font-weight:700;color:var(--gold);letter-spacing:2px}
-.share-copy{background:var(--gold);color:var(--bg);border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600}
-
-.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--bg);padding:9px 22px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;animation:fadeIn .3s}
-
-@keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
-@keyframes slideUp{from{opacity:0;transform:translate(-50%,-50%) translateY(15px)}to{opacity:1;transform:translate(-50%,-50%) translateY(0)}}
-@keyframes slideUp2{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
-@media(max-width:600px){.header{padding:8px 10px}.nav-btn{padding:5px 9px;font-size:11px}.lobby-card{padding:28px 20px}}
+:root{--bg:#090c16;--bg2:#0e1221;--surface:#151a2f;--surface2:#1c2240;--surface3:#242a4a;--border:#252b48;--border2:#353d65;--gold:#d4a94c;--gold2:#b8912e;--gold3:#f0c860;--gold-bg:rgba(212,169,76,.08);--text:#ece9e0;--text2:#b0ada2;--dim:#6b6980;--fem:#e07899;--mal:#6b9fd4;--alert:#e8603c;--alert-bg:rgba(232,96,60,.1);--green:#4dbd7a;--green-bg:rgba(77,189,122,.1);--font-d:'Cormorant Garamond',Georgia,serif;--font-b:'Source Sans 3','Segoe UI',system-ui,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--font-b);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(212,169,76,.04) 0%,transparent 60%),radial-gradient(ellipse at 80% 100%,rgba(107,159,212,.03) 0%,transparent 50%);pointer-events:none;z-index:0}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+button{cursor:pointer;font-family:var(--font-b)}input,textarea{font-family:var(--font-b)}
+.hdr{background:rgba(21,26,47,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:100}
+.hdr-logo{display:flex;align-items:center;gap:10px}.hdr-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--gold2));display:flex;align-items:center;justify-content:center;font-size:18px}
+.hdr-title{font-family:var(--font-d);font-size:19px;font-weight:700;color:var(--gold)}.hdr-sub{font-size:10px;color:var(--dim);display:flex;align-items:center;gap:6px}
+.nav{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.nb{background:transparent;color:var(--dim);border:1px solid var(--border);border-radius:7px;padding:6px 13px;font-size:12px;font-weight:500;transition:all .2s;position:relative}
+.nb.on{background:var(--gold);color:var(--bg);border-color:var(--gold);font-weight:700}.nb:hover:not(.on){border-color:var(--gold);color:var(--text)}
+.nb .bdg{position:absolute;top:-5px;right:-5px;background:var(--alert);color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:1px 5px;min-width:15px;text-align:center}
+.ib{background:transparent;border:1px solid var(--border);border-radius:6px;padding:4px 7px;font-size:13px;line-height:1;transition:all .2s}.ib:hover{border-color:var(--gold);background:var(--gold-bg)}
+.sp{width:1px;height:20px;background:var(--border);margin:0 2px}
+.pb{padding:5px 16px 3px;display:flex;align-items:center;gap:10px}.pt{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.pf{height:100%;background:linear-gradient(90deg,var(--gold2),var(--gold3));border-radius:2px;transition:width .6s}.pl{font-size:11px;color:var(--dim);white-space:nowrap}
+.sh{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px;margin:4px 16px 6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sh-c{font-family:monospace;font-size:15px;font-weight:700;color:var(--gold);letter-spacing:2px}
+.sh-b{background:var(--gold);color:var(--bg);border:none;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:600}
+.ta{padding:10px 10px 16px;overflow-x:auto;position:relative}
+.tb{display:flex;flex-direction:column-reverse;align-items:center;gap:2px;min-width:820px;padding:10px 0 20px}
+.gr{display:flex;justify-content:center;align-items:flex-start;gap:6px;flex-wrap:nowrap;width:100%;padding:8px 0;position:relative}
+.gl{position:absolute;left:6px;top:50%;transform:translateY(-50%);font-family:var(--font-d);font-size:11px;color:var(--dim);font-style:italic;writing-mode:vertical-rl;letter-spacing:1px;opacity:.6}
+.fg{display:flex;align-items:flex-start;gap:4px;padding:0 6px}
+.nd{width:104px;background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:8px 6px 6px;text-align:center;transition:all .25s;cursor:pointer;position:relative;flex-shrink:0}
+.nd:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.nd.sib{width:88px;opacity:.85}.nd.ao{border-color:var(--alert);box-shadow:0 0 16px var(--alert-bg)}
+.nd.ff{border-color:var(--fem)}.nd.fm{border-color:var(--mal)}
+.nr{width:38px;height:38px;margin:0 auto 4px;position:relative}
+.nr svg{width:38px;height:38px;transform:rotate(-90deg)}.nr .rb{fill:none;stroke:var(--border);stroke-width:3}.nr .rf{fill:none;stroke-width:3;stroke-linecap:round;transition:stroke-dashoffset .6s}
+.ne{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:16px}
+.nrl{font-size:9px;color:var(--dim);line-height:1.2;margin-bottom:2px;min-height:18px}
+.nn{font-size:10px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.na{font-size:8px;color:var(--alert);font-weight:700;margin-top:2px}
+.nm{background:linear-gradient(135deg,var(--gold),var(--gold2));border:none!important;border-radius:12px;padding:10px 18px}.nm .nrl{color:rgba(0,0,0,.5)}.nm .nn{color:var(--bg);font-size:13px}
+.ab{width:30px;height:30px;border-radius:8px;border:1px dashed var(--border2);background:transparent;color:var(--dim);font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;align-self:center}
+.ab:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-bg)}
+.am{position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:5px;z-index:50;min-width:170px;box-shadow:0 12px 32px rgba(0,0,0,.5);display:none}
+.am.show{display:block}.am button{width:100%;padding:7px 10px;background:transparent;border:none;color:var(--text);font-size:12px;text-align:left;border-radius:6px;transition:background .15s}
+.am button:hover{background:var(--gold-bg);color:var(--gold)}
+.th{text-align:center;color:var(--dim);font-size:12px;margin-top:4px;font-style:italic}
+.db{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--alert);color:#fff;border:2px solid var(--bg);font-size:9px;display:none;align-items:center;justify-content:center;z-index:5;line-height:1}
+.nd:hover .db.can{display:flex}
+.pn{height:calc(100vh - 82px);overflow-y:auto;padding:0 14px 40px;animation:pi .3s}.pi{max-width:720px;margin:0 auto}
+.ph{display:flex;align-items:center;gap:10px;padding:14px 0 10px;border-bottom:1px solid var(--border);margin-bottom:14px;position:sticky;top:0;background:var(--bg);z-index:10}
+.bk{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text);font-size:13px;transition:all .2s}.bk:hover{border-color:var(--gold)}
+.ax{background:var(--alert-bg);border:1px solid rgba(232,96,60,.3);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.axt{font-size:13px;font-weight:700;color:var(--alert);margin-bottom:4px}
+.axm{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}.axm span{background:rgba(232,96,60,.2);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;color:var(--alert)}
+.axd{font-size:11px;color:var(--dim)}
+.st{width:100%;display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--text);text-align:left;font-size:13px;font-weight:600;transition:background .15s}
+.st:hover{background:var(--surface2)}.st.op{border-radius:10px 10px 0 0}.st.cl{border-radius:10px}
+.sy{background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;padding:8px 12px 12px}
+.sw{margin-bottom:6px}.sc{font-size:10px;color:var(--dim);padding:2px 7px;border-radius:10px}.sc.h{background:var(--green-bg);color:var(--green)}
+.sa{font-size:11px;color:var(--dim);transition:transform .2s}.sa.op{transform:rotate(180deg)}
+.fd{margin-bottom:8px}.fl{display:block;font-size:11px;font-weight:600;color:var(--dim);margin-bottom:3px}.fl.cr{color:var(--gold)}
+.fb{margin-left:5px;font-size:9px;background:var(--gold2);color:var(--bg);padding:1px 5px;border-radius:4px;font-weight:700}
+.fi{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px;outline:none;transition:border-color .2s}
+.fi:focus{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-bg)}.fi::placeholder{color:#484660;font-size:12px}textarea.fi{resize:vertical;min-height:80px}
+.gt{font-family:var(--font-d);font-size:22px;font-weight:700;color:var(--gold)}.gd{font-size:12px;color:var(--dim);margin-bottom:16px;line-height:1.5}
+.gc{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.gq{font-size:13px;font-weight:600;line-height:1.4;margin-bottom:7px}.gn{color:var(--gold);font-family:var(--font-d);font-weight:700;margin-right:5px}
+.ae{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:30px;text-align:center}
+.ag{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px}.agt{font-size:14px;font-weight:700;color:var(--alert);margin-bottom:8px}
+.agp{display:flex;align-items:center;gap:9px;padding:7px 9px;background:var(--bg2);border-radius:6px;margin-bottom:4px;cursor:pointer;border:1px solid transparent;transition:border-color .2s}.agp:hover{border-color:var(--gold)}
+.lo{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.lc{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:44px 36px;max-width:440px;width:100%;text-align:center;position:relative;overflow:hidden}
+.lc::before{content:'';position:absolute;top:-60px;right:-60px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(212,169,76,.1),transparent 70%);pointer-events:none}
+.li{font-size:52px;margin-bottom:14px}.lt{font-family:var(--font-d);font-size:28px;font-weight:700;color:var(--gold);margin-bottom:6px}
+.ld{font-size:13px;color:var(--dim);margin-bottom:28px;line-height:1.6}
+.lb{width:100%;padding:13px;border-radius:10px;font-size:14px;font-weight:700;border:none;margin-bottom:10px;transition:all .2s}
+.lb:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,0,0,.3)}
+.lb.p{background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--bg)}.lb.s{background:transparent;border:1px solid var(--border);color:var(--text)}
+.lv{color:var(--dim);font-size:12px;margin:16px 0;display:flex;align-items:center;gap:10px}.lv::before,.lv::after{content:'';flex:1;height:1px;background:var(--border)}
+.lj{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--gold);font-size:18px;text-align:center;letter-spacing:5px;font-weight:700;outline:none;margin-bottom:10px;font-family:monospace}
+.lj:focus{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-bg)}.lj::placeholder{letter-spacing:1px;font-weight:400;color:var(--dim);font-size:14px}
+.lw{margin-top:16px;padding:10px;background:var(--alert-bg);border:1px solid rgba(232,96,60,.2);border-radius:8px;font-size:11px;color:var(--alert);line-height:1.5}
+.sy-s{font-size:9px;padding:2px 7px;border-radius:10px;display:inline-flex;align-items:center;gap:3px}
+.sy-s.on{background:var(--green-bg);color:var(--green)}.sy-s.off{background:rgba(255,255,255,.05);color:var(--dim)}
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--bg);padding:10px 24px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;animation:fi .3s;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+@keyframes fi{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes pi{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:600px){.hdr{padding:8px 10px}.nb{padding:5px 8px;font-size:11px}.nd{width:82px}.nd.sib{width:72px}.lc{padding:28px 18px}}
 </style>
 </head>
 <body>
 <div id="app"></div>
-
 <script>
-// ╔══════════════════════════════════════════════════════════════╗
-// ║  🔧 FIREBASE CONFIG — ЗАМЕНИТЕ НА СВОИ ДАННЫЕ              ║
-// ║  Инструкция: см. README или сообщение в чате Claude         ║
-// ╚══════════════════════════════════════════════════════════════╝
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAObYDV9zB8DguOJC-krGFqwSHl4SAdW94",
-  authDomain: "familytreevision.firebaseapp.com",
-  projectId: "familytreevision",
-  storageBucket: "familytreevision.firebasestorage.app",
-  messagingSenderId: "159441682554",
-  appId: "1:159441682554:web:706b36833acd785757fbc3",
-  measurementId: "G-9K8ZVY9XRC"
-};
+const FC={apiKey:"YOUR_API_KEY",authDomain:"YOUR_PROJECT.firebaseapp.com",projectId:"YOUR_PROJECT_ID",storageBucket:"YOUR_PROJECT.appspot.com",messagingSenderId:"000000000000",appId:"YOUR_APP_ID"};
+const FO=FC.apiKey!=="YOUR_API_KEY";let db=null,unsub=null;
+if(FO){try{firebase.initializeApp(FC);db=firebase.firestore()}catch(e){console.error(e)}}
 
-const IS_FIREBASE_CONFIGURED = FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY";
-let db = null;
-let unsubscribe = null;
+const FIELDS=[{s:"Основные данные",i:"👤",f:[{k:"surname",l:"Фамилия (текущая)",p:"Иванов"},{k:"maidenName",l:"Фамилия при рождении",p:"Если менялась — оригинальная"},{k:"otherNames",l:"Другие варианты фамилии",p:"По браку, русифицированные (Попеску→Попов)"},{k:"firstName",l:"Имя",p:"Полное имя"},{k:"patronymic",l:"Отчество",p:""},{k:"birthDate",l:"Дата рождения",p:"ДД.ММ.ГГГГ или год"},{k:"birthPlace",l:"Место рождения",p:"Страна → область → район → город/село",c:1},{k:"deathDate",l:"Дата смерти",p:"Если применимо"},{k:"deathPlace",l:"Место смерти",p:""}]},{s:"Национальность и корни",i:"🌍",f:[{k:"passportNat",l:"Национальность по паспорту",p:"Графа «5» сов. паспорта",c:1},{k:"actualNat",l:"Фактическая национальность",p:"Как себя считал(а)"},{k:"nativeLang",l:"Родной язык",p:"Дома, с родителями",c:1},{k:"otherLangs",l:"Другие языки",p:"Идиш, румынский, немецкий, польский..."},{k:"religion",l:"Вероисповедание",p:"Православие, католичество, иудаизм, лютеранство..."},{k:"citizenship",l:"Гражданство",p:"СССР, Румыния, Польша, Австро-Венгрия..."}]},{s:"Место жительства по периодам",i:"📍",f:[{k:"before1917",l:"До 1917",p:"Губерния, уезд, город/село"},{k:"period1918",l:"1918–1940 (КЛЮЧЕВОЙ ПЕРИОД!)",p:"Какая страна? Бессарабия? Буковина? Галиция?",c:1},{k:"period1941",l:"1941–1945",p:"Эвакуация? Фронт? Оккупация?"},{k:"after1945",l:"После 1945",p:"Города проживания"}]},{s:"Репрессии и война",i:"⚔️",f:[{k:"warService",l:"Участие в ВОВ",p:"Где служил(а)? Звание?"},{k:"repression",l:"Репрессии",p:"Арест? Ссылка? Лагерь?",c:1},{k:"deportation",l:"Депортация",p:"Откуда, куда, когда?",c:1},{k:"evacuation",l:"Эвакуация",p:"Откуда и куда?"}]},{s:"Семья и работа",i:"👨‍👩‍👧",f:[{k:"education",l:"Образование",p:"Вуз/школа"},{k:"profession",l:"Профессия",p:"Кем работал(а)"},{k:"spouseName",l:"ФИО супруга/супруги",p:"Девичья фамилия"},{k:"spouseNat",l:"Национальность супруга",p:""},{k:"spouseBirth",l:"Место рожд. супруга",p:""}]},{s:"Документы и память",i:"📜",f:[{k:"documents",l:"Сохранившиеся документы",p:"Паспорта, свидетельства, метрики...",c:1},{k:"photos",l:"Старые фотографии",p:"С подписями? На каком языке?"},{k:"letters",l:"Письма, дневники",p:"На каком языке?"},{k:"notes",l:"Заметки и воспоминания",p:"Семейные истории, легенды...",m:1}]}];
+const AK=FIELDS.flatMap(s=>s.f.map(f=>f.k));
+const MK=["бессараб","кишинёв","кишинев","бельц","тирасполь","бендер","хотин","аккерман","белгород-днестров","измаил","болград","килия","бричан","сорок","оргеев","унген","кагул","комрат","тараклия","молдав","молдов","черновц","буковин","сторожинец","вижниц","кицман","заставн","кельменц","герца","закарпат","ужгород","мукачев","берегов","львов","тернопол","ивано-франк","станислав","галиц","вильн","каунас","литв","латв","рига","эстон","таллин","варшав","краков","польш","люблин","поволж","немц","deutsch","шваб","колони","еврей","иудаизм","идиш","синагог","местечк","грек","греч","мариупол","урум","болгар","румын","roman","попеску","молдован","венгр","мадьяр","трансильван","католи","лютеран","греко-католи","униат","депортац","репресс","ссылк","лагер","расстрел"];
+const MG={"🇷🇴 Румыния/Молдова":["бессараб","кишинёв","кишинев","бельц","тирасполь","бендер","хотин","аккерман","белгород-днестров","измаил","болград","килия","бричан","сорок","оргеев","унген","кагул","комрат","тараклия","молдав","молдов","черновц","буковин","сторожинец","вижниц","кицман","заставн","кельменц","герца","румын","roman","попеску","молдован"],"🇭🇺 Венгрия":["закарпат","ужгород","мукачев","берегов","венгр","мадьяр","трансильван"],"🇵🇱 Польша":["львов","тернопол","ивано-франк","станислав","галиц","варшав","краков","польш","люблин"],"🇱🇹 Литва":["вильн","каунас","литв"],"🇱🇻 Латвия":["латв","рига"],"🇪🇪 Эстония":["эстон","таллин"],"🇩🇪 Германия":["поволж","немц","deutsch","шваб","колони","лютеран"],"🇮🇱 Израиль":["еврей","иудаизм","идиш","синагог","местечк"],"🇬🇷 Греция":["грек","греч","мариупол","урум"],"🇧🇬 Болгария":["болгар"]};
+const GQ=["Были ли в семье разговоры о «нерусских» корнях?","Были ли люди с необычными фамилиями (-еску, -ану, -ски, -берг, -штейн)?","Говорил ли кто-то из старших на другом языке?","Была ли не-православная религия?","Были ли репрессированные, депортированные?","Откуда семья переехала в ваш город?","Сохранились ли старые документы?","Есть ли фотоальбомы до 1950-х? На каком языке подписи?","Помните ли названия деревень, откуда были старшие?","Есть ли «хранитель семейной памяти»?","Была ли смена фамилии?","Были ли «запретные темы» в семье?"];
+const CI=2*Math.PI*15;
 
-if (IS_FIREBASE_CONFIGURED) {
-  try { firebase.initializeApp(FIREBASE_CONFIG); db = firebase.firestore(); } catch(e) { console.error("Firebase init failed:", e); }
-}
-
-// ── Data ──
-const LS_KEY = "family-tree-v3";
-const FIELDS=[{section:"Основные данные",icon:"👤",fields:[{key:"surname",label:"Фамилия (текущая)",ph:"Иванов"},{key:"maidenName",label:"Фамилия при рождении",ph:"Если менялась"},{key:"otherNames",label:"Другие варианты фамилии",ph:"По браку, русифицированные..."},{key:"firstName",label:"Имя",ph:"Полное имя"},{key:"patronymic",label:"Отчество",ph:""},{key:"birthDate",label:"Дата рождения",ph:"ДД.ММ.ГГГГ или хотя бы год"},{key:"birthPlace",label:"Место рождения",ph:"Страна, область, район, город/село",critical:true},{key:"deathDate",label:"Дата смерти",ph:"Если применимо"},{key:"deathPlace",label:"Место смерти",ph:""}]},{section:"Национальность и корни",icon:"🌍",fields:[{key:"passportNat",label:"Национальность по паспорту",ph:"Графа «5» советского паспорта",critical:true},{key:"actualNat",label:"Фактическая национальность",ph:"Как себя считал(а)"},{key:"nativeLang",label:"Родной язык",ph:"На каком языке говорил(а) дома",critical:true},{key:"otherLangs",label:"Другие языки",ph:"Идиш, румынский, немецкий, польский..."},{key:"religion",label:"Вероисповедание",ph:"Православие, католичество, иудаизм, лютеранство..."},{key:"citizenship",label:"Гражданство",ph:"СССР, Румыния, Польша..."}]},{section:"Место жительства",icon:"📍",fields:[{key:"before1917",label:"До 1917 года",ph:"Губерния, уезд, село/город"},{key:"period1918",label:"1918–1940",ph:"ВАЖНО! Страна, область, район",critical:true},{key:"period1941",label:"1941–1945",ph:"Эвакуация, фронт, оккупация?"},{key:"after1945",label:"После 1945",ph:"Основные адреса / города"}]},{section:"Репрессии и война",icon:"⚔️",fields:[{key:"warService",label:"Участие в ВОВ",ph:"Воевал(а)? Где, звание?"},{key:"repression",label:"Репрессии",ph:"Арест, ссылка, лагерь?",critical:true},{key:"deportation",label:"Депортация",ph:"Откуда, куда, когда?",critical:true},{key:"evacuation",label:"Эвакуация",ph:"Откуда и куда?"}]},{section:"Семья и работа",icon:"👨‍👩‍👧",fields:[{key:"education",label:"Образование",ph:"Где учился/училась"},{key:"profession",label:"Профессия",ph:"Кем работал(а)"},{key:"spouseName",label:"Супруг(а) — ФИО",ph:"Полное имя, девичья фамилия"},{key:"spouseNat",label:"Национальность супруга",ph:""},{key:"spouseBirth",label:"Место рождения супруга",ph:""}]},{section:"Документы и память",icon:"📜",fields:[{key:"documents",label:"Сохранившиеся документы",ph:"Паспорта, свидетельства, военные билеты...",critical:true},{key:"photos",label:"Старые фотографии",ph:"Есть ли? С подписями?"},{key:"letters",label:"Письма, дневники",ph:"На каком языке? Откуда?"},{key:"notes",label:"Заметки и воспоминания",ph:"Любые семейные истории...",multi:true}]}];
-const ALL_KEYS=FIELDS.flatMap(s=>s.fields.map(f=>f.key));
-const MARKERS=["бессараб","кишинёв","кишинев","бельц","тирасполь","бендер","хотин","аккерман","белгород-днестров","измаил","болград","килия","бричан","сорок","оргеев","унген","кагул","комрат","тараклия","молдав","молдов","черновц","буковин","сторожинец","вижниц","кицман","заставн","кельменц","герца","закарпат","ужгород","мукачев","берегов","львов","тернопол","ивано-франк","станислав","галиц","вильн","каунас","литв","латв","рига","эстон","таллин","варшав","краков","польш","люблин","поволж","немц","deutsch","шваб","колони","еврей","иудаизм","идиш","синагог","местечк","грек","греч","мариупол","урум","болгар","румын","roman","попеску","молдован","венгр","мадьяр","трансильван","католи","лютеран","греко-католи","униат","депортац","репресс","ссылк","лагер","расстрел"];
-const MARKER_GROUPS={"🇷🇴 Румыния / Молдова":["бессараб","кишинёв","кишинев","бельц","тирасполь","бендер","хотин","аккерман","белгород-днестров","измаил","болград","килия","бричан","сорок","оргеев","унген","кагул","комрат","тараклия","молдав","молдов","черновц","буковин","сторожинец","вижниц","кицман","заставн","кельменц","герца","румын","roman","попеску","молдован"],"🇭🇺 Венгрия":["закарпат","ужгород","мукачев","берегов","венгр","мадьяр","трансильван"],"🇵🇱 Польша":["львов","тернопол","ивано-франк","станислав","галиц","варшав","краков","польш","люблин"],"🇱🇹 Литва":["вильн","каунас","литв"],"🇱🇻 Латвия":["латв","рига"],"🇪🇪 Эстония":["эстон","таллин"],"🇩🇪 Германия":["поволж","немц","deutsch","шваб","колони","лютеран"],"🇮🇱 Израиль":["еврей","иудаизм","идиш","синагог","местечк"],"🇬🇷 Греция":["грек","греч","мариупол","урум"],"🇧🇬 Болгария":["болгар"],"⛪ Религиозный маркер":["католи","греко-католи","униат"],"⚠️ Репрессии":["депортац","репресс","ссылк","лагер","расстрел"]};
-const TREE={me:{label:"Я",level:0,gender:"self"},father:{label:"Отец",level:1,gender:"m",parent:"me"},mother:{label:"Мать",level:1,gender:"f",parent:"me"},gm_pat:{label:"Бабушка\n(по отцу)",level:2,gender:"f",parent:"father"},gf_pat:{label:"Дедушка\n(по отцу)",level:2,gender:"m",parent:"father"},gm_mat:{label:"Бабушка\n(по матери)",level:2,gender:"f",parent:"mother"},gf_mat:{label:"Дедушка\n(по матери)",level:2,gender:"m",parent:"mother"},ggm_pat1:{label:"Прабабушка",level:3,gender:"f",parent:"gm_pat"},ggf_pat1:{label:"Прадедушка",level:3,gender:"m",parent:"gm_pat"},ggm_pat2:{label:"Прабабушка",level:3,gender:"f",parent:"gf_pat"},ggf_pat2:{label:"Прадедушка",level:3,gender:"m",parent:"gf_pat"},ggm_mat1:{label:"Прабабушка",level:3,gender:"f",parent:"gm_mat"},ggf_mat1:{label:"Прадедушка",level:3,gender:"m",parent:"gm_mat"},ggm_mat2:{label:"Прабабушка",level:3,gender:"f",parent:"gf_mat"},ggf_mat2:{label:"Прадедушка",level:3,gender:"m",parent:"gf_mat"}};
-const POS={me:{x:50,y:88},father:{x:25,y:66},mother:{x:75,y:66},gm_pat:{x:12.5,y:44},gf_pat:{x:37.5,y:44},gm_mat:{x:62.5,y:44},gf_mat:{x:87.5,y:44},ggm_pat1:{x:6.25,y:18},ggf_pat1:{x:18.75,y:18},ggm_pat2:{x:31.25,y:18},ggf_pat2:{x:43.75,y:18},ggm_mat1:{x:56.25,y:18},ggf_mat1:{x:68.75,y:18},ggm_mat2:{x:81.25,y:18},ggf_mat2:{x:93.75,y:18}};
-const GQ=["Были ли в семье разговоры о «нерусских» корнях?","Были ли люди с необычными фамилиями? На -еску, -ану, -ски, -берг, -штейн, -ис, -ян?","Говорил ли кто-то из старших на другом языке, кроме русского?","Была ли не-православная религия? Католичество, иудаизм, лютеранство?","Были ли репрессированные, депортированные? Кто, когда, откуда?","Откуда семья оказалась в том городе, где вы выросли?","Сохранились ли старые документы: паспорта, свидетельства, метрики?","Есть ли фотоальбомы с фото до 1950-х? На каком языке подписи?","Помните ли названия деревень/городов, откуда были родом старшие?","Есть ли «хранитель семейной памяти» среди родственников?","Была ли смена фамилии, имени или отчества?","Были ли «запретные темы» — о чём старшие молчали?"];
-
-let state={persons:{},general:{},view:"lobby",selected:null,openSections:{},roomId:null,synced:false};
-
-function genCode(){const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let r="";for(let i=0;i<6;i++)r+=c[Math.floor(Math.random()*c.length)];return r}
-function getMarkers(p){if(!p)return[];const t=Object.values(p).join(" ").toLowerCase();return[...new Set(MARKERS.filter(m=>t.includes(m)))]}
-function getCompletion(p){if(!p)return 0;return Math.round(ALL_KEYS.filter(k=>p[k]?.trim?.()).length/ALL_KEYS.length*100)}
-function getAllAlerts(){const r=[];Object.keys(TREE).forEach(id=>{if(id==="me")return;getMarkers(state.persons[id]).forEach(m=>r.push({person:id,marker:m}))});return r}
-function getMarkerGroup(m){for(const[g,ms]of Object.entries(MARKER_GROUPS)){if(ms.includes(m))return g}return"Другое"}
+function mkInit(){return{me:{id:"me",role:"Я",gen:0,gender:null,core:1},father:{id:"father",role:"Отец",gen:1,gender:"m",core:1,parentOf:"me"},mother:{id:"mother",role:"Мать",gen:1,gender:"f",core:1,parentOf:"me"},gm_pat:{id:"gm_pat",role:"Бабушка (по отцу)",gen:2,gender:"f",core:1,parentOf:"father"},gf_pat:{id:"gf_pat",role:"Дедушка (по отцу)",gen:2,gender:"m",core:1,parentOf:"father"},gm_mat:{id:"gm_mat",role:"Бабушка (по матери)",gen:2,gender:"f",core:1,parentOf:"mother"},gf_mat:{id:"gf_mat",role:"Дедушка (по матери)",gen:2,gender:"m",core:1,parentOf:"mother"},ggm1:{id:"ggm1",role:"Прабабушка",gen:3,gender:"f",core:1,parentOf:"gm_pat"},ggf1:{id:"ggf1",role:"Прадедушка",gen:3,gender:"m",core:1,parentOf:"gm_pat"},ggm2:{id:"ggm2",role:"Прабабушка",gen:3,gender:"f",core:1,parentOf:"gf_pat"},ggf2:{id:"ggf2",role:"Прадедушка",gen:3,gender:"m",core:1,parentOf:"gf_pat"},ggm3:{id:"ggm3",role:"Прабабушка",gen:3,gender:"f",core:1,parentOf:"gm_mat"},ggf3:{id:"ggf3",role:"Прадедушка",gen:3,gender:"m",core:1,parentOf:"gm_mat"},ggm4:{id:"ggm4",role:"Прабабушка",gen:3,gender:"f",core:1,parentOf:"gf_mat"},ggf4:{id:"ggf4",role:"Прадедушка",gen:3,gender:"m",core:1,parentOf:"gf_mat"}}}
+let S={tree:mkInit(),data:{},general:{},view:"lobby",sel:null,os:{},rid:null,sync:false,am:null};
+const LS="ftree-v5";
 function esc(s){const d=document.createElement("div");d.textContent=s||"";return d.innerHTML}
-function showToast(msg){const el=document.createElement("div");el.className="toast";el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2500)}
+function toast(m){const e=document.createElement("div");e.className="toast";e.textContent=m;document.body.appendChild(e);setTimeout(()=>e.remove(),2500)}
+function gid(){return"p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function mks(pid){const d=S.data[pid];if(!d)return[];const t=Object.values(d).join(" ").toLowerCase();return[...new Set(MK.filter(m=>t.includes(m)))]}
+function pc(pid){const d=S.data[pid];if(!d)return 0;return Math.round(AK.filter(k=>d[k]?.trim?.()).length/AK.length*100)}
+function aAlerts(){const r=[];Object.keys(S.tree).forEach(id=>{if(id==="me")return;mks(id).forEach(m=>r.push({person:id,marker:m}))});return r}
+function mgr(m){for(const[g,ms]of Object.entries(MG))if(ms.includes(m))return g;return"⚠️ Другое"}
 
-// ── Storage ──
-function saveLocal(){try{localStorage.setItem(LS_KEY,JSON.stringify({persons:state.persons,general:state.general,roomId:state.roomId}))}catch{}}
-function loadLocal(){try{const d=localStorage.getItem(LS_KEY);if(d){const p=JSON.parse(d);state.persons=p.persons||{};state.general=p.general||{};if(p.roomId)state.roomId=p.roomId}}catch{}}
+function sL(){try{localStorage.setItem(LS,JSON.stringify({tree:S.tree,data:S.data,general:S.general,rid:S.rid}))}catch{}}
+function lL(){try{const d=localStorage.getItem(LS);if(d){const p=JSON.parse(d);if(p.tree)S.tree=p.tree;S.data=p.data||{};S.general=p.general||{};if(p.rid)S.rid=p.rid}}catch{}}
+async function sC(){if(!db||!S.rid)return;try{await db.collection("rooms").doc(S.rid).set({tree:S.tree,data:S.data,general:S.general,t:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});S.sync=true}catch(e){console.error(e)}}
+function lC(){if(!db||!S.rid)return;if(unsub)unsub();unsub=db.collection("rooms").doc(S.rid).onSnapshot(snap=>{if(snap.exists){const d=snap.data();S.tree=d.tree||mkInit();S.data=d.data||{};S.general=d.general||{};S.sync=true;sL();R()}},()=>{S.sync=false})}
+let st=null;function sA(){sL();clearTimeout(st);st=setTimeout(()=>{if(db&&S.rid)sC()},1200)}
+function gc(){const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let r="";for(let i=0;i<6;i++)r+=c[Math.floor(Math.random()*c.length)];return r}
+async function cRoom(){const code=gc();if(db){try{await db.collection("rooms").doc(code).set({tree:S.tree,data:S.data,general:S.general,t:firebase.firestore.FieldValue.serverTimestamp()});S.sync=true}catch(e){console.error(e)}}S.rid=code;sL();if(db)lC();S.view="tree";R();uURL()}
+async function jRoom(code){code=(code||"").toUpperCase().trim();if(code.length<4)return;if(db){try{const snap=await db.collection("rooms").doc(code).get();if(!snap.exists){toast("Комната не найдена");return}const d=snap.data();S.tree=d.tree||mkInit();S.data=d.data||{};S.general=d.general||{};S.sync=true}catch(e){toast("Ошибка подключения");return}}S.rid=code;sL();if(db)lC();S.view="tree";R();uURL()}
+function uURL(){if(S.rid)history.replaceState(null,"","?room="+S.rid)}
 
-// ── Firebase sync ──
-async function saveCloud(){
-  if(!db||!state.roomId)return;
-  try{await db.collection("rooms").doc(state.roomId).set({persons:state.persons,general:state.general,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});state.synced=true}catch(e){console.error("Cloud save failed:",e)}
-}
-function listenCloud(){
-  if(!db||!state.roomId)return;
-  if(unsubscribe)unsubscribe();
-  unsubscribe=db.collection("rooms").doc(state.roomId).onSnapshot(snap=>{
-    if(snap.exists){const d=snap.data();state.persons=d.persons||{};state.general=d.general||{};state.synced=true;saveLocal();render()}
-  },e=>{console.error("Listen error:",e);state.synced=false});
-}
-async function createRoom(){
-  const code=genCode();
-  if(db){try{await db.collection("rooms").doc(code).set({persons:{},general:{},createdAt:firebase.firestore.FieldValue.serverTimestamp()});state.roomId=code;state.persons={};state.general={};state.synced=true;saveLocal();listenCloud()}catch(e){console.error(e)}}
-  else{state.roomId=code;saveLocal()}
-  state.view="tree";render();updateURL()
-}
-async function joinRoom(code){
-  code=code.toUpperCase().trim();if(code.length<4)return;
-  if(db){try{const snap=await db.collection("rooms").doc(code).get();if(!snap.exists){showToast("Комната не найдена");return}const d=snap.data();state.persons=d.persons||{};state.general=d.general||{};state.roomId=code;state.synced=true;saveLocal();listenCloud()}catch(e){showToast("Ошибка подключения");return}}
-  else{state.roomId=code;saveLocal()}
-  state.view="tree";render();updateURL()
-}
-function updateURL(){if(state.roomId)history.replaceState(null,"",`?room=${state.roomId}`)}
+function addSib(ofId){const o=S.tree[ofId];if(!o)return;const id=gid();const g=o.gender==="f"?"m":"f";S.tree[id]={id,role:g==="f"?"Сестра":"Брат",gen:o.gen,gender:g,core:0,siblingOf:ofId,parentOf:o.parentOf};S.data[id]={};sA();S.am=null;R()}
+function addSp(ofId){const o=S.tree[ofId];if(!o)return;const id=gid();const g=o.gender==="f"?"m":"f";S.tree[id]={id,role:g==="f"?"Супруга":"Супруг",gen:o.gen,gender:g,core:0,spouseOf:ofId};S.data[id]={};sA();S.am=null;R()}
+function delP(id){if(S.tree[id]?.core)return;Object.keys(S.tree).forEach(k=>{if(S.tree[k].siblingOf===id||S.tree[k].spouseOf===id){delete S.tree[k];delete S.data[k]}});delete S.tree[id];delete S.data[id];if(S.sel===id)S.sel=null;sA();R()}
 
-let saveTimer=null;
-function saveData(){
-  saveLocal();
-  clearTimeout(saveTimer);
-  saveTimer=setTimeout(()=>{if(db&&state.roomId)saveCloud()},1200);
-}
+function R(){
+  const al=aAlerts();const am={};al.forEach(a=>am[a.person]=true);
+  const ids=Object.keys(S.tree).filter(k=>k!=="me");
+  const tot=ids.reduce((s,k)=>s+pc(k),0);
+  const pr=ids.length?Math.round(tot/(ids.length*100)*100):0;
 
-// ── Init ──
-function init(){
-  loadLocal();
-  const params=new URLSearchParams(location.search);
-  const urlRoom=params.get("room");
-  if(urlRoom){joinRoom(urlRoom);return}
-  if(state.roomId&&db){state.view="tree";listenCloud();render();updateURL();return}
-  if(state.roomId){state.view="tree";render();updateURL();return}
-  state.view="lobby";render()
+  if(S.view==="lobby"){document.getElementById("app").innerHTML=rLob();return}
+  const sy=FO?(S.sync?`<span class="sy-s on">☁️ синхр.</span>`:`<span class="sy-s off">⏳</span>`):`<span class="sy-s off">💾 локально</span>`;
+  let h=`<div class="hdr"><div class="hdr-logo"><div class="hdr-mark">🌳</div><div><div class="hdr-title">Семейное Древо</div><div class="hdr-sub">${sy}</div></div></div><div class="nav"><button class="nb ${S.view==="tree"&&!S.sel?"on":""}" onclick="go('tree')">Древо</button><button class="nb ${S.view==="general"?"on":""}" onclick="go('general')">Вопросы</button><button class="nb ${S.view==="alerts"?"on":""}" onclick="go('alerts')">Находки${al.length?`<span class="bdg">${al.length}</span>`:""}</button><span class="sp"></span><button class="ib" onclick="doExp()">💾</button><button class="ib" onclick="doImp()">📂</button><button class="ib" onclick="doRst()">🗑️</button></div></div>`;
+  h+=`<div class="pb"><div class="pt"><div class="pf" style="width:${pr}%"></div></div><span class="pl">${pr}%</span></div>`;
+  if(S.rid)h+=`<div class="sh"><span style="font-size:11px;color:var(--dim)">Код:</span><span class="sh-c">${S.rid}</span><button class="sh-b" onclick="cpL()">📋 Скопировать ссылку</button></div>`;
+  if(S.view==="tree"&&!S.sel)h+=rTree(am);
+  else if(S.view==="tree"&&S.sel)h+=rPers(S.sel);
+  else if(S.view==="general")h+=rGen();
+  else if(S.view==="alerts")h+=rAl(al);
+  document.getElementById("app").innerHTML=h;
+  document.body.onclick=e=>{if(!e.target.closest('.am')&&!e.target.closest('.ab')){if(S.am){S.am=null;document.querySelectorAll('.am').forEach(m=>m.classList.remove('show'))}}};
 }
 
-// ── Render ──
-function render(){
-  const alerts=getAllAlerts();
-  const ids=Object.keys(TREE).filter(k=>k!=="me");
-  const total=ids.reduce((s,k)=>s+getCompletion(state.persons[k]),0);
-  const pct=Math.round(total/(ids.length*100)*100);
+function rLob(){return`<div class="lo"><div class="lc"><div class="li">🌳</div><div class="lt">Семейное Древо</div><div class="ld">Интерактивная анкета для исследования происхождения. Создайте комнату и поделитесь ссылкой с родственниками — заполняйте вместе.</div><button class="lb p" onclick="cRoom()">Создать новое древо</button><div class="lv">или присоединиться</div><input class="lj" id="jI" placeholder="КОД" maxlength="6" oninput="this.value=this.value.toUpperCase()"><button class="lb s" onclick="jRoom(document.getElementById('jI').value)">Войти по коду</button>${!FO?`<div class="lw">⚠️ Firebase не настроен. Данные сохраняются локально в браузере.</div>`:""}</div></div>`}
 
-  if(state.view==="lobby"){document.getElementById("app").innerHTML=renderLobby();return}
-
-  const syncBadge=IS_FIREBASE_CONFIGURED
-    ?(state.synced?`<span class="sync-status sync-online">☁️ онлайн</span>`:`<span class="sync-status sync-offline">📴 офлайн</span>`)
-    :`<span class="sync-status sync-offline">💾 локально</span>`;
-
-  let html=`
-  <div class="header">
-    <div class="logo"><span style="font-size:22px">🌳</span><div><div class="logo-text">Семейное Древо</div><div class="logo-sub">Исследование происхождения ${syncBadge}</div></div></div>
-    <div class="nav">
-      <button class="nav-btn ${state.view==="tree"&&!state.selected?"active":""}" onclick="go('tree')">Древо</button>
-      <button class="nav-btn ${state.view==="general"?"active":""}" onclick="go('general')">Вопросы</button>
-      <button class="nav-btn ${state.view==="alerts"?"active":""}" onclick="go('alerts')">Находки${alerts.length?`<span class="nav-badge">${alerts.length}</span>`:""}</button>
-      <span class="sep"></span>
-      <button class="sm-btn" onclick="doExport()" title="Экспорт">💾</button>
-      <button class="sm-btn" onclick="doImport()" title="Импорт">📂</button>
-      <button class="sm-btn" onclick="doReset()" title="Сбросить">🗑️</button>
-    </div>
-  </div>
-  <div class="progress-bar"><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div><span class="progress-label">${pct}% заполнено</span></div>`;
-
-  if(state.roomId){
-    const link=location.origin+location.pathname+`?room=${state.roomId}`;
-    html+=`<div class="share-bar"><span style="font-size:12px;color:var(--dim)">Код комнаты:</span><span class="share-code">${state.roomId}</span><button class="share-copy" onclick="copyLink()">Скопировать ссылку</button></div>`;
-  }
-
-  if(state.view==="tree"&&!state.selected)html+=renderTree(alerts);
-  else if(state.view==="tree"&&state.selected)html+=renderPerson(state.selected);
-  else if(state.view==="general")html+=renderGeneral();
-  else if(state.view==="alerts")html+=renderAlerts(alerts);
-
-  document.getElementById("app").innerHTML=html;
+function rTree(am){
+  const gens=[[],[],[],[]];Object.values(S.tree).forEach(p=>{if(p.gen>=0&&p.gen<=3)gens[p.gen].push(p)});
+  const gL=["","Родители","Бабушки и дедушки","Прабабушки и прадедушки"];
+  let rows="";
+  for(let g=0;g<=3;g++){
+    if(g===0){rows+=`<div class="gr"><div class="fg">${rNd(S.tree.me,am)}</div></div>`;continue}
+    const fams={};gens[g].forEach(p=>{const k=p.parentOf||p.siblingOf||p.spouseOf||"x";if(!fams[k])fams[k]=[];fams[k].push(p)});
+    let fg="";
+    const keys=Object.keys(fams).sort((a,b)=>Object.keys(S.tree).indexOf(a)-Object.keys(S.tree).indexOf(b));
+    keys.forEach(k=>{const f=fams[k];f.sort((a,b)=>(b.core||0)-(a.core||0));
+      let ns=f.map(p=>rNd(p,am)).join("");
+      const core=f.find(p=>p.core);
+      if(core){const mid="m_"+core.id;const show=S.am===mid;
+        ns+=`<div style="position:relative;align-self:center"><button class="ab" onclick="event.stopPropagation();tgA('${mid}')">+</button><div class="am ${show?"show":""}" onclick="event.stopPropagation()"><button onclick="addSib('${core.id}')">👫 Добавить брата/сестру</button><button onclick="addSp('${core.id}')">💍 Добавить супруга(у)</button></div></div>`}
+      fg+=`<div class="fg">${ns}</div>`});
+    rows+=`<div class="gr">${g>0?`<div class="gl">${gL[g]}</div>`:""}${fg}</div>`}
+  return`<div class="ta"><div class="tb">${rows}</div><div class="th">Нажмите карточку для заполнения · Кнопка «+» добавляет родственника</div></div>`
 }
 
-function renderLobby(){
-  return `<div class="lobby"><div class="lobby-card">
-    <div class="lobby-icon">🌳</div>
-    <div class="lobby-title">Семейное Древо</div>
-    <div class="lobby-desc">Интерактивная анкета для исследования происхождения. Создайте комнату и отправьте ссылку родственникам — все смогут заполнять анкету совместно.</div>
-    <button class="lobby-btn primary" onclick="createRoom()">🆕 Создать новое древо</button>
-    <div class="lobby-divider">или присоединиться к существующему</div>
-    <input class="lobby-input" id="joinInput" placeholder="КОД" maxlength="6" oninput="this.value=this.value.toUpperCase()">
-    <button class="lobby-btn secondary" onclick="joinRoom(document.getElementById('joinInput').value)">Войти по коду</button>
-    ${!IS_FIREBASE_CONFIGURED?`<div style="margin-top:20px;padding:12px;background:var(--alert-bg);border:1px solid var(--alert);border-radius:8px;font-size:11px;color:var(--alert);line-height:1.5">⚠️ Firebase не настроен — данные сохраняются только в этом браузере. Для совместной работы настройте Firebase (см. инструкцию).</div>`:""}
-  </div></div>`;
+function rNd(p,am){
+  if(p.id==="me")return`<div class="nd nm"><div class="nrl">Заявитель</div><div class="nn">Я</div></div>`;
+  const d=S.data[p.id]||{};const pv=pc(p.id);const ha=am[p.id];
+  const nm=(d.firstName||d.surname)?`${d.firstName||""} ${d.surname||""}`.trim():"";
+  const cls=[p.core?"":"sib",ha?"ao":"",!ha&&pv>0?(p.gender==="f"?"ff":"fm"):""].filter(Boolean).join(" ");
+  const em=p.gender==="f"?"👩":"👨";const rc=ha?"var(--alert)":pv>60?"var(--green)":"var(--gold)";
+  const off=CI-CI*(pv/100);
+  return`<div class="nd ${cls}" onclick="sel('${p.id}')">
+    ${!p.core?`<button class="db can" onclick="event.stopPropagation();delP('${p.id}')">✕</button>`:""}
+    <div class="nr"><svg viewBox="0 0 36 36"><circle class="rb" cx="18" cy="18" r="15"/><circle class="rf" cx="18" cy="18" r="15" stroke="${rc}" stroke-dasharray="${CI.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/></svg><span class="ne">${em}</span></div>
+    <div class="nrl">${esc(p.role)}</div>
+    ${nm?`<div class="nn">${esc(nm)}</div>`:`<div class="nn" style="color:var(--dim);font-style:italic;font-size:9px">не заполнено</div>`}
+    ${ha?`<div class="na">⚡ зацепка</div>`:""}</div>`
 }
 
-function renderTree(alerts){
-  const alertMap={};alerts.forEach(a=>alertMap[a.person]=true);
-  const conns=Object.entries(TREE).filter(([_,v])=>v.parent).map(([id,v])=>{const f=POS[id],t=POS[v.parent];return`<line x1="${f.x}%" y1="${f.y}%" x2="${t.x}%" y2="${t.y}%" stroke="#8a7535" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.45"/>`}).join("");
-  let nodes="";
-  Object.entries(TREE).forEach(([id,info])=>{
-    const p=POS[id];const w=info.level===3?95:id==="me"?"auto":110;
-    if(id==="me"){nodes+=`<div class="tree-node" style="left:${p.x}%;top:${p.y}%;animation-delay:0ms"><div class="me-node"><div class="me-node-text">Я</div></div></div>`;return}
-    const person=state.persons[id]||{};const pct=getCompletion(person);const hasAlert=alertMap[id];
-    const name=(person.firstName||person.surname)?`${person.firstName||""} ${person.surname||""}`.trim():"";
-    const gc=info.gender==="f"?"has-data-f":"has-data-m";const cls=hasAlert?"has-alert":pct>0?gc:"";
-    const fillColor=pct>60?"var(--green)":"var(--gold)";
-    nodes+=`<div class="tree-node" style="left:${p.x}%;top:${p.y}%;animation-delay:${info.level*80}ms;width:${w}px" onclick="selectPerson('${id}')"><div class="node-card ${cls}" style="width:${w}px"><div class="node-icon">${info.gender==="f"?"👩":"👨"}</div><div class="node-label">${esc(info.label)}</div>${name?`<div class="node-name">${esc(name)}</div>`:""}<div class="node-progress"><div class="node-progress-fill" style="width:${pct}%;background:${fillColor}"></div></div>${hasAlert?`<div class="node-alert-tag">⚡ ЗАЦЕПКА</div>`:""}</div></div>`
-  });
-  return`<div class="tree-wrap"><div class="tree-container"><svg class="tree-svg">${conns}</svg>${nodes}<div class="tree-legend"><span>👩 женщина</span><span>👨 мужчина</span><span style="color:var(--alert)">⚡ зацепка</span></div></div><div class="tree-hint">Нажмите на родственника, чтобы заполнить информацию</div></div>`;
+function rPers(id){
+  const p=S.tree[id];if(!p){S.sel=null;R();return""}
+  const d=S.data[id]||{};const mk=mks(id);const pv=pc(id);
+  const gc=p.gender==="f"?"var(--fem)":"var(--mal)";const pcC=pv>60?"var(--green)":"var(--gold)";
+  const em=p.gender==="f"?"👩":"👨";const dn=d.firstName||p.role;
+  let ah="";if(mk.length)ah=`<div class="ax"><div class="axt">⚡ Потенциальные зацепки!</div><div class="axm">${mk.map(m=>`<span>${esc(m)}</span>`).join("")}</div><div class="axd">Возможная связь с территориями бывшей Румынии, Польши, Германии, Прибалтики или еврейским/немецким/греческим происхождением.</div></div>`;
+  let ss="";FIELDS.forEach((sec,si)=>{const sk=`${id}_${si}`;const io=S.os[sk]!==false;const fl=sec.f.filter(f=>d[f.k]?.trim?.()).length;
+    let fh="";if(io){sec.f.forEach(f=>{const v=d[f.k]||"";const lc=f.c?"fl cr":"fl";const bg=f.c?`<span class="fb">ВАЖНО</span>`:"";
+      if(f.m)fh+=`<div class="fd"><label class="${lc}">${esc(f.l)}${bg}</label><textarea class="fi" placeholder="${esc(f.p)}" data-p="${id}" data-f="${f.k}" oninput="uf(this)">${esc(v)}</textarea></div>`;
+      else fh+=`<div class="fd"><label class="${lc}">${esc(f.l)}${bg}</label><input type="text" class="fi" placeholder="${esc(f.p)}" value="${esc(v)}" data-p="${id}" data-f="${f.k}" oninput="uf(this)"></div>`
+    });fh=`<div class="sy">${fh}</div>`}
+    ss+=`<div class="sw"><button class="st ${io?"op":"cl"}" onclick="tgS('${sk}')"><span style="font-size:15px">${sec.i}</span><span style="flex:1">${esc(sec.s)}</span><span class="sc ${fl>0?"h":""}">${fl}/${sec.f.length}</span><span class="sa ${io?"op":""}">▼</span></button>${fh}</div>`});
+  return`<div class="pn"><div class="pi"><div class="ph"><button class="bk" onclick="go('tree')">← Назад</button><div style="flex:1"><div class="panel-nm" style="font-family:var(--font-d);font-size:18px;font-weight:700;color:${gc}">${em} ${esc(dn)}${d.surname?` <span style="color:var(--dim)">${esc(d.surname)}</span>`:""}</div><div style="font-size:11px;color:var(--dim)">${esc(p.role)}${!p.core?` · <a href="#" onclick="event.preventDefault();delP('${id}');go('tree')" style="color:var(--alert);font-size:10px">удалить</a>`:""}</div></div><div style="text-align:right"><div style="font-size:22px;font-weight:700;font-family:var(--font-d);color:${pcC}">${pv}%</div><div style="font-size:10px;color:var(--dim)">заполнено</div></div></div>${ah}${ss}</div></div>`
 }
 
-function renderPerson(id){
-  const info=TREE[id];const person=state.persons[id]||{};const markers=getMarkers(person);const pct=getCompletion(person);
-  const gc=info.gender==="f"?"var(--female)":"var(--male)";const pctColor=pct>60?"var(--green)":"var(--gold)";
-  const icon=info.gender==="f"?"👩":"👨";const dn=person.firstName||info.label;const ds=person.surname?` <span style="color:var(--dim)">${esc(person.surname)}</span>`:"";
-  let alertHtml="";
-  if(markers.length){alertHtml=`<div class="alert-box"><div class="alert-title">⚡ Обнаружены потенциальные зацепки!</div><div class="alert-markers">${markers.map(m=>`<span class="alert-marker">${esc(m)}</span>`).join("")}</div><div class="alert-desc">Могут указывать на территории бывшей Румынии, Польши, Германии, Прибалтики или еврейское/немецкое/греческое происхождение.</div></div>`}
-  let sects="";
-  FIELDS.forEach((section,si)=>{
-    const sKey=`${id}_${si}`;const isOpen=state.openSections[sKey]!==false;const filled=section.fields.filter(f=>person[f.key]?.trim?.()).length;
-    let flds="";
-    if(isOpen){section.fields.forEach(f=>{const val=person[f.key]||"";const lc=f.critical?"field-label critical":"field-label";const badge=f.critical?`<span class="field-badge">ВАЖНО</span>`:"";
-      if(f.multi){flds+=`<div class="field"><label class="${lc}">${esc(f.label)}${badge}</label><textarea class="field-input" placeholder="${esc(f.ph)}" data-person="${id}" data-field="${f.key}" oninput="updateField(this)">${esc(val)}</textarea></div>`}
-      else{flds+=`<div class="field"><label class="${lc}">${esc(f.label)}${badge}</label><input type="text" class="field-input" placeholder="${esc(f.ph)}" value="${esc(val)}" data-person="${id}" data-field="${f.key}" oninput="updateField(this)"></div>`}
-    });flds=`<div class="section-body">${flds}</div>`}
-    sects+=`<div class="section-wrap"><button class="section-toggle ${isOpen?"open":"closed"}" onclick="toggleSection('${sKey}')"><span style="font-size:15px">${section.icon}</span><span class="section-name" style="flex:1">${esc(section.section)}</span><span class="section-count ${filled>0?"has":""}">${filled}/${section.fields.length}</span><span class="section-arrow ${isOpen?"open":""}">▼</span></button>${flds}</div>`
-  });
-  return`<div class="panel"><div class="panel-inner"><div class="panel-header"><button class="back-btn" onclick="go('tree')">← Назад</button><div style="flex:1"><div class="panel-name" style="color:${gc}">${icon} ${esc(dn)}${ds}</div><div class="panel-role">${esc(info.label)}</div></div><div style="text-align:right"><div class="panel-pct-num" style="color:${pctColor}">${pct}%</div><div class="panel-pct-label">заполнено</div></div></div>${alertHtml}${sects}</div></div>`;
-}
+function rGen(){let c="";GQ.forEach((q,i)=>{const v=S.general[`q${i}`]||"";c+=`<div class="gc"><div class="gq"><span class="gn">${i+1}.</span>${esc(q)}</div><textarea class="fi" rows="3" placeholder="Ваш ответ..." data-gq="${i}" oninput="ugq(this)">${esc(v)}</textarea></div>`});
+  return`<div class="pn"><div class="pi"><div class="gt">Общие вопросы о семье</div><div class="gd">Помогают обнаружить корни, о которых семья «забыла». Любой ответ — даже приблизительный — ценен.</div>${c}</div></div>`}
 
-function renderGeneral(){
-  let cards="";GQ.forEach((q,i)=>{const val=state.general[`q${i}`]||"";cards+=`<div class="gq-card"><div class="gq-q"><span class="gq-num">${i+1}.</span>${esc(q)}</div><textarea class="field-input" rows="3" placeholder="Ваш ответ..." data-gq="${i}" oninput="updateGQ(this)">${esc(val)}</textarea></div>`});
-  return`<div class="panel"><div class="panel-inner"><div class="gq-title">Общие вопросы о семье</div><div class="gq-desc">Помогают выявить корни, о которых семья могла «забыть». Даже «вроде слышал(а)» — ценная информация.</div>${cards}</div></div>`;
-}
+function rAl(al){
+  if(!al.length)return`<div class="pn"><div class="pi"><div class="gt">Обнаруженные зацепки</div><div class="gd">Автоматическая проверка данных на совпадения с территориями и маркерами.</div><div class="ae"><div style="font-size:40px;margin-bottom:10px">🔍</div><div style="font-size:14px;color:var(--dim)">Пока зацепок нет. Заполняйте данные — проверка автоматическая.</div></div></div></div>`;
+  const gr={};al.forEach(a=>{const g=mgr(a.marker);if(!gr[g])gr[g]={};if(!gr[g][a.person])gr[g][a.person]=[];gr[g][a.person].push(a.marker)});
+  let gh="";Object.entries(gr).forEach(([g,ps])=>{let ph="";Object.entries(ps).forEach(([pid,ms])=>{const d=S.data[pid]||{};const t=S.tree[pid];const nm=(d.firstName||d.surname)?`${d.firstName||""} ${d.surname||""}`.trim():t?.role;ph+=`<div class="agp" onclick="sel('${pid}')"><span>${t?.gender==="f"?"👩":"👨"}</span><div style="flex:1"><div style="font-size:12px;font-weight:600">${esc(nm)}</div><div style="font-size:10px;color:var(--dim)">${esc(t?.role)}</div></div><div style="display:flex;gap:3px;flex-wrap:wrap">${ms.map(m=>`<span class="axm" style="margin:0"><span>${esc(m)}</span></span>`).join("")}</div><span style="color:var(--dim)">→</span></div>`});gh+=`<div class="ag"><div class="agt">${esc(g)}</div>${ph}</div>`});
+  return`<div class="pn"><div class="pi"><div class="gt">Обнаруженные зацепки</div><div class="gd">Автоматическая проверка введённых данных.</div>${gh}</div></div>`}
 
-function renderAlerts(alerts){
-  if(!alerts.length)return`<div class="panel"><div class="panel-inner"><div class="gq-title">Обнаруженные зацепки</div><div class="gq-desc">Система проверяет данные на совпадения с территориями и маркерами.</div><div class="alerts-empty"><div style="font-size:38px;margin-bottom:8px">🔍</div><div style="font-size:14px;color:var(--dim)">Зацепок пока нет. Заполняйте информацию — проверка автоматическая.</div></div></div></div>`;
-  const grouped={};alerts.forEach(a=>{const g=getMarkerGroup(a.marker);if(!grouped[g])grouped[g]={};if(!grouped[g][a.person])grouped[g][a.person]=[];grouped[g][a.person].push(a.marker)});
-  let gh="";Object.entries(grouped).forEach(([group,persons])=>{let ph="";Object.entries(persons).forEach(([pid,ms])=>{const p=state.persons[pid]||{};const name=(p.firstName||p.surname)?`${p.firstName||""} ${p.surname||""}`.trim():TREE[pid]?.label;const icon=TREE[pid]?.gender==="f"?"👩":"👨";ph+=`<div class="alert-person" onclick="selectPerson('${pid}')"><span>${icon}</span><div style="flex:1"><div style="font-size:12px;font-weight:600">${esc(name)}</div><div style="font-size:10px;color:var(--dim)">${esc(TREE[pid]?.label)}</div></div><div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end">${ms.map(m=>`<span class="alert-marker">${esc(m)}</span>`).join("")}</div><span style="color:var(--dim);font-size:12px">→</span></div>`});gh+=`<div class="alert-group"><div class="alert-group-title">${esc(group)}</div>${ph}</div>`});
-  return`<div class="panel"><div class="panel-inner"><div class="gq-title">Обнаруженные зацепки</div><div class="gq-desc">Автоматическая проверка введённых данных.</div>${gh}</div></div>`;
-}
+window.go=v=>{S.view=v;S.sel=null;S.am=null;R()};
+window.sel=id=>{S.view="tree";S.sel=id;S.am=null;R()};
+window.tgS=k=>{S.os[k]=S.os[k]===false;R()};
+window.tgA=id=>{S.am=S.am===id?null:id;R()};
+window.addSib=addSib;window.addSp=addSp;window.delP=id=>{if(!S.tree[id]?.core&&confirm("Удалить?"))delP(id)};
+let ft=null;
+window.uf=el=>{const id=el.dataset.p,k=el.dataset.f;if(!S.data[id])S.data[id]={};S.data[id][k]=el.value;clearTimeout(ft);ft=setTimeout(()=>{sA();R()},1000)};
+window.ugq=el=>{S.general[`q${el.dataset.gq}`]=el.value;clearTimeout(ft);ft=setTimeout(()=>sA(),1000)};
+window.cpL=()=>{const l=location.origin+location.pathname+"?room="+S.rid;navigator.clipboard?.writeText(l).then(()=>toast("Ссылка скопирована!")).catch(()=>{const i=document.createElement("input");i.value=l;document.body.appendChild(i);i.select();document.execCommand("copy");i.remove();toast("Ссылка скопирована!")})};
+window.doExp=()=>{const b=new Blob([JSON.stringify({tree:S.tree,data:S.data,general:S.general},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="family-tree.json";a.click();toast("Экспортировано")};
+window.doImp=()=>{const i=document.createElement("input");i.type="file";i.accept=".json";i.onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(d.tree){S.tree=d.tree;S.data=d.data||{};S.general=d.general||{};sA();R();toast("Импортировано")}}catch{toast("Ошибка формата")}};i.click()};
+window.doRst=()=>{if(confirm("Удалить ВСЕ данные?")){S.tree=mkInit();S.data={};S.general={};S.sel=null;sA();R()}};
 
-// ── Handlers ──
-window.go=function(v){state.view=v;state.selected=null;render()};
-window.selectPerson=function(id){state.view="tree";state.selected=id;render()};
-window.toggleSection=function(k){state.openSections[k]=state.openSections[k]===false?true:false;render()};
-
-let fieldTimer=null;
-window.updateField=function(el){
-  const id=el.dataset.person,key=el.dataset.field;if(!state.persons[id])state.persons[id]={};state.persons[id][key]=el.value;
-  clearTimeout(fieldTimer);fieldTimer=setTimeout(()=>{saveData();render()},1000);
-};
-window.updateGQ=function(el){state.general[`q${el.dataset.gq}`]=el.value;clearTimeout(fieldTimer);fieldTimer=setTimeout(()=>saveData(),1000)};
-
-window.copyLink=function(){
-  const link=location.origin+location.pathname+`?room=${state.roomId}`;
-  navigator.clipboard.writeText(link).then(()=>showToast("Ссылка скопирована!")).catch(()=>{
-    const inp=document.createElement("input");inp.value=link;document.body.appendChild(inp);inp.select();document.execCommand("copy");inp.remove();showToast("Ссылка скопирована!");
-  });
-};
-window.doExport=function(){
-  const blob=new Blob([JSON.stringify({persons:state.persons,general:state.general},null,2)],{type:"application/json"});
-  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="family-tree-backup.json";a.click();URL.revokeObjectURL(a.href);showToast("Данные экспортированы")
-};
-window.doImport=function(){
-  const inp=document.createElement("input");inp.type="file";inp.accept=".json";
-  inp.onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(d.persons){state.persons=d.persons;state.general=d.general||{};saveData();render();showToast("Данные импортированы")}}catch{showToast("Ошибка формата")}};inp.click()
-};
-window.doReset=function(){if(confirm("Удалить все данные? Необратимо.")){state.persons={};state.general={};saveData();state.selected=null;render()}};
-
-init();
+lL();const ur=new URLSearchParams(location.search).get("room");
+if(ur)jRoom(ur);else if(S.rid){S.view="tree";if(db)lC();R();uURL()}else{S.view="lobby";R()}
 </script>
 </body>
 </html>
